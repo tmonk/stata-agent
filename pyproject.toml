@@ -22,8 +22,14 @@ mock = []
 packages = ["src/stata_agent"]
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
     "requires_stata: tests that need a live Stata license",
 ]
 filterwarnings = ["ignore::DeprecationWarning"]
+
+[dependency-groups]
+dev = [
+    "pytest-asyncio>=0.24",
+]
