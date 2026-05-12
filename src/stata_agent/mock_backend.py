@@ -26,8 +26,8 @@ def _load_canned_responses() -> dict[str, dict[str, Any]]:
         return responses
 
     file_map: dict[str, str] = {
-        "display_1plus1.txt": ". display 1+1\n",
-        "sysuse_auto.txt": "sysuse auto, clear",
+        "display_1plus1.txt": "display 1+1",
+        "sysuse_auto.txt": "sysuse auto",
         "describe_auto.txt": "describe",
         "summarize_auto.txt": "summarize price mpg",
         "reg_price_mpg.txt": "reg price mpg",
@@ -58,7 +58,7 @@ _session_state: dict[str, dict[str, Any]] = {}
 def _get_state(session: str = "default") -> dict[str, Any]:
     if session not in _session_state:
         _session_state[session] = {
-            "dataset": None,
+            "dataset": {},
             "vars": [],
             "obs": 0,
             "graphs": [],
@@ -84,12 +84,24 @@ def _route_command(code: str, session: str = "default") -> dict[str, Any]:
 
         # Update state for known commands
         if "sysuse auto" in norm:
-            state["dataset"] = "auto"
-            state["vars"] = [
-                "make", "price", "mpg", "rep78", "headroom", "trunk",
-                "weight", "length", "turn", "displacement", "gear_ratio", "foreign",
-            ]
-            state["obs"] = 74
+            state["dataset"] = {
+                "name": "auto",
+                "observations": 74,
+                "variables": [
+                    {"name": "make", "type": "str18", "label": "Make and Model"},
+                    {"name": "price", "type": "int", "label": "Price"},
+                    {"name": "mpg", "type": "int", "label": "Mileage (mpg)"},
+                    {"name": "rep78", "type": "int", "label": "Repair Record 1978"},
+                    {"name": "headroom", "type": "float", "label": "Headroom (in.)"},
+                    {"name": "trunk", "type": "int", "label": "Trunk space (cu. ft.)"},
+                    {"name": "weight", "type": "int", "label": "Weight (lbs.)"},
+                    {"name": "length", "type": "int", "label": "Length (in.)"},
+                    {"name": "turn", "type": "int", "label": "Turn Circle (ft.)"},
+                    {"name": "displacement", "type": "int", "label": "Displacement (cu. in.)"},
+                    {"name": "gear_ratio", "type": "float", "label": "Gear Ratio"},
+                    {"name": "foreign", "type": "byte", "label": "Car type"},
+                ],
+            }
         elif norm == "describe":
             pass  # state already tracked
         elif norm == "reg price mpg":
@@ -99,7 +111,7 @@ def _route_command(code: str, session: str = "default") -> dict[str, Any]:
         elif "error 111" in norm and "capture" not in norm:
             state["last_rc"] = 111
 
-        rc = 111 if "r(" in output.splitlines()[-1] if output.splitlines() else "" else 0
+        rc = 111 if "r(" in (output.splitlines()[-1] if output.splitlines() else "") else 0
         return {
             "ok": rc == 0,
             "rc": rc,
@@ -167,7 +179,7 @@ def _route_command(code: str, session: str = "default") -> dict[str, Any]:
     }
 
 
-class MockJsonProtocol:
+class MockJsonProtocol(asyncio.Protocol):
     """NDJSON protocol handler for the mock daemon."""
 
     def __init__(self, daemon: "MockDaemon"):
@@ -250,8 +262,14 @@ class MockDaemon:
 
         if method == "run":
             code = args.get("code", "")
+            if args.get("background"):
+                import uuid
+                return {"task_id": uuid.uuid4().hex, "status": "running"}
             result = _route_command(code, session)
             return result
+
+        elif method == "run_file":
+            return _route_command("", session)
 
         elif method == "break":
             return {"acknowledged": True, "worker_restarted": True, "note": "Session state has been reset after break"}
@@ -263,20 +281,29 @@ class MockDaemon:
             self._shutdown_event.set()
             return {"acknowledged": True}
 
-        elif method == "inspect":
-            action = args.get("action", "")
-            if action == "describe":
-                return {"text": _CANNED.get("describe", {}).get("output", ""), "variables": [], "dataset": {}}
-            elif action == "summary":
-                return {"variables": {}}
-            elif action == "list":
-                return {"rows": [], "total_obs": 0, "returned": 0}
-            else:
-                return {"text": ""}
+        elif method == "inspect_describe":
+            state = _get_state(session)
+            dataset = state.get("dataset", {})
+            return {"text": "", "variables": dataset.get("variables", []), "dataset": dataset, "obs_count": dataset.get("observations", 0), "var_count": len(dataset.get("variables", []))}
+
+        elif method == "inspect_summary":
+            return {"text": ""}
+
+        elif method == "inspect_codebook":
+            return {"text": ""}
+
+        elif method == "inspect_list":
+            return {"text": "", "rows": [], "total_obs": 0, "returned": 0}
+
+        elif method == "inspect_get":
+            return {"path": "/tmp/mock_export.csv", "size_bytes": 0}
 
         elif method == "graph_list":
             state = _get_state(session)
             return {"graph_names": state.get("graphs", [])}
+
+        elif method == "graph_export":
+            return {"file_path": f"/tmp/mock_{args.get('name', 'graph')}.{args.get('format', 'pdf')}", "size_bytes": 0}
 
         elif method == "results":
             return {"stored_results": {}}
@@ -286,6 +313,21 @@ class MockDaemon:
 
         elif method == "log_errors":
             return {"rc": None, "message": "", "context": ""}
+
+        elif method == "log_search":
+            return {"matches": []}
+
+        elif method == "log_path":
+            return {"log_path": "/tmp/mock_log.log"}
+
+        elif method == "task_status":
+            return {"status": "completed", "rc": 0}
+
+        elif method == "task_cancel":
+            return {"cancelled": True}
+
+        elif method == "task_list":
+            return {"tasks": []}
 
         elif method == "help":
             return {"text": f"Help for {args.get('topic', '')}"}
