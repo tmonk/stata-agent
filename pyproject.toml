@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "stata-agent"
+version = "0.1.0"
+description = "CLI-native Stata integration via daemon, skills, and structured error extraction"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Oh My Pi", email = "dev@ohmy.pi"}
+]
+
+[project.scripts]
+stata = "stata_agent.cli:main"
+
+[project.optional-dependencies]
+mock = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/stata_agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "requires_stata: tests that need a live Stata license",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
