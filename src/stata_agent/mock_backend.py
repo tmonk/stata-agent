@@ -63,6 +63,7 @@ def _get_state(session: str = "default") -> dict[str, Any]:
             "obs": 0,
             "graphs": [],
             "last_rc": 0,
+            "statest_scalars": {},
         }
     return _session_state[session]
 
@@ -269,6 +270,80 @@ class MockDaemon:
             return result
 
         elif method == "run_file":
+            path = args.get("path", "")
+            fname = os.path.basename(path) if path else ""
+            # Handle statest failure simulations by filename pattern
+            state = _get_state(session)
+
+            failure_map = {
+                "fail_assert_scalar_fail": {
+                    "statest_assertion_index": 1.0,
+                    "statest_command": "st_assert_scalar",
+                    "statest_variable": "",
+                    "statest_actual": 6165.257,
+                    "statest_expected": 5000.0,
+                    "statest_tolerance": 0.0,
+                },
+                "fail_assert_macro_fail": {
+                    "statest_assertion_index": 1.0,
+                    "statest_command": "st_assert_macro",
+                    "statest_variable": "",
+                    "statest_actual_str": "regress",
+                    "statest_expected_str": "summarize",
+                },
+                "fail_assert_matrix_fail": {
+                    "statest_assertion_index": 1.0,
+                    "statest_command": "st_assert_matrix",
+                    "statest_variable": "A",
+                    "statest_tolerance": 0.0,
+                    "statest_error": "Matrix dimensions mismatch",
+                },
+                "fail_assert_rc_fail": {
+                    "statest_assertion_index": 1.0,
+                    "statest_command": "st_assert_rc",
+                    "statest_variable": "use nonexistent.dta",
+                    "statest_actual": 601.0,
+                    "statest_expected": 0.0,
+                    "statest_tolerance": 0.0,
+                },
+                "fail_assert_scalar_tol_fail": {
+                    "statest_assertion_index": 1.0,
+                    "statest_command": "st_assert_scalar",
+                    "statest_variable": "",
+                    "statest_actual": 6165.2568,
+                    "statest_expected": 6165.0,
+                    "statest_tolerance": 0.0001,
+                },
+                "fail_failure_capture": {
+                    "statest_assertion_index": 1.0,
+                    "statest_command": "st_assert_scalar",
+                    "statest_variable": "",
+                    "statest_actual": 1.0,
+                    "statest_expected": 2.0,
+                    "statest_tolerance": 0.0,
+                },
+                "fail_teardown_runs_on_fail": {
+                    "statest_assertion_index": 1.0,
+                    "statest_command": "st_assert_scalar",
+                    "statest_variable": "",
+                    "statest_actual": 1.0,
+                    "statest_expected": 0.0,
+                    "statest_tolerance": 0.0,
+                },
+            }
+
+            for pattern, scalars in failure_map.items():
+                if pattern in fname:
+                    state["statest_scalars"] = scalars.copy()
+                    state["last_rc"] = 9
+                    return {
+                        "ok": False,
+                        "rc": 9,
+                        "stdout": f"assertion failure: expected {scalars.get('statest_expected', '?')}, got {scalars.get('statest_actual', '?')}",
+                        "log_path": f"/tmp/mock_{session}.log",
+                        "error": "Assertion failure (rc=9)",
+                    }
+
             return _route_command("", session)
 
         elif method == "break":
@@ -278,6 +353,12 @@ class MockDaemon:
             return {"status": "running", "pid": os.getpid(), "session_name": self.session_name}
 
         elif method == "stop":
+            session_arg = args.get("session", "")
+            if session_arg:
+                # Session-specific stop — don't shut down, just acknowledge
+                state = _get_state(session_arg)
+                state["statest_scalars"] = {}
+                return {"acknowledged": True}
             self._shutdown_event.set()
             return {"acknowledged": True}
 
@@ -306,6 +387,10 @@ class MockDaemon:
             return {"file_path": f"/tmp/mock_{args.get('name', 'graph')}.{args.get('format', 'pdf')}", "size_bytes": 0}
 
         elif method == "results":
+            state = _get_state(session)
+            statest_scalars = state.get("statest_scalars", {})
+            if statest_scalars:
+                return {"stored_results": {"scalars": statest_scalars}}
             return {"stored_results": {}}
 
         elif method == "log_tail":
