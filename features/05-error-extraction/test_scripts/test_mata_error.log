@@ -1,0 +1,11 @@
+
+
+. // Test 2: Mata error - undefined variables
+. clear
+
+. mata: x = y + z
+                 <istmt>:  3499  y not found
+r(3499);
+
+end of do-file
+r(3499);

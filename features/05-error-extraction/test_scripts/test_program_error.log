@@ -1,0 +1,15 @@
+
+
+. // Test 5: Program-defined error
+. capture program drop badprog
+
+. program define badprog
+  1.     error 111
+  2. end
+
+. badprog
+invalid syntax
+r(111);
+
+end of do-file
+r(111);

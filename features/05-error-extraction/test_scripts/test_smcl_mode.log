@@ -1,0 +1,26 @@
+
+
+. // Test SMCL log format with errors
+. clear
+
+. log using "test_smcl_mode.smcl", replace smcl
+(file
+    /Users/tom/Library/CloudStorage/Dropbox/projects/stata-workbench/mcp-stata/s
+    > tata-ai/features/05-error-extraction/test_scripts/test_smcl_mode.smcl not
+    found)
+----------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/tom/Library/CloudStorage/Dropbox/projects/stata-workbench/mcp-
+> stata/stata-ai/features/05-error-extraction/test_scripts/test_smcl_mode.smcl
+  log type:  smcl
+ opened on:  12 May 2026, 15:00:41
+
+. sysuse auto, clear
+(1978 automobile data)
+
+. regress y z_nonexistent
+variable y not found
+r(111);
+
+end of do-file
+r(111);

@@ -1,0 +1,2 @@
+. sysuse auto, clear
+(1978 automobile data)

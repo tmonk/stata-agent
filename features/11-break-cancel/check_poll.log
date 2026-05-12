@@ -1,0 +1,70 @@
+
+  ___  ____  ____  ____  ____ ®
+ /__    /   ____/   /   ____/      StataNow 19.5
+___/   /   /___/   /   /___/       SE—Standard Edition
+
+ Statistics and Data Science       Copyright 1985-2025 StataCorp LLC
+                                   StataCorp
+                                   4905 Lakeway Drive
+                                   College Station, Texas 77845 USA
+                                   800-782-8272        https://www.stata.com
+                                   979-696-4600        service@stata.com
+
+Stata license: Unlimited-user network, expiring 29 Jan 2027
+Serial number: 401909305000
+  Licensed to: Thomas Monk
+               LSE
+
+Notes:
+      1. Stata is running in batch mode.
+      2. Unicode is supported; see help unicode_advice.
+      3. Maximum number of variables is set to 5,000 but can be increased;
+          see help set_maxvar.
+
+. do check_poll.do 
+
+. python:
+----------------------------------------------- python (type end to exit) -----
+>>> import sfi
+>>> toolkit = sfi.SFIToolkit
+>>> # Check for poll-related methods
+... for attr in ['pollnow', 'pollstd', 'poll', 'checkBreak', 'processEvents']:
+...     obj = getattr(toolkit, attr, None)
+...     if obj:
+...         print(f"SFIToolkit.{attr} EXISTS: {obj}")
+...         if callable(obj):
+...             import inspect
+...             try:
+...                 print(f"  signature: {inspect.signature(obj)}")
+...             except:
+...                 print(f"  callable, no sig")
+...     else:
+...         print(f"SFIToolkit.{attr} NOT found")
+... 
+... # Also check the Data class
+SFIToolkit.pollnow EXISTS: <function SFIToolkit.pollnow at 0x10c52be50>
+  signature: ()
+SFIToolkit.pollstd EXISTS: <function SFIToolkit.pollstd at 0x10c52bdc0>
+  signature: ()
+SFIToolkit.poll NOT found
+SFIToolkit.checkBreak NOT found
+SFIToolkit.processEvents NOT found
+>>> print("\n--- Checking sfi.Data ---")
+
+--- Checking sfi.Data ---
+>>> for attr in dir(sfi.Data):
+...     if 'break' in attr.lower() or 'interrupt' in attr.lower():
+...         print(f"  Data.{attr}")
+... 
+... # Check Frame
+>>> print("\n--- Checking sfi.Frame ---")
+
+--- Checking sfi.Frame ---
+>>> for attr in dir(sfi.Frame):
+...     if 'break' in attr.lower() or 'interrupt' in attr.lower():
+...         print(f"  Frame.{attr}")
+>>> end
+-------------------------------------------------------------------------------
+
+. 
+end of do-file

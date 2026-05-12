@@ -1,0 +1,11 @@
+
+
+. // Test 4: Custom error via display as error
+. display as error "custom msg"
+custom msg
+
+. display "_rc after custom error = " _rc
+_rc after custom error = 0
+
+. 
+end of do-file

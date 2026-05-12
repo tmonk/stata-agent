@@ -1,0 +1,16 @@
+{smcl}
+{txt}{sf}{ul off}{.-}
+      name:  {res}<unnamed>
+       {txt}log:  {res}/Users/tom/Library/CloudStorage/Dropbox/projects/stata-workbench/mcp-stata/stata-ai/features/05-error-extraction/test_scripts/test_smcl_mode.smcl
+  {txt}log type:  {res}smcl
+ {txt}opened on:  {res}12 May 2026, 15:00:41
+{txt}
+{com}. sysuse auto, clear
+{txt}(1978 automobile data)
+
+{com}. regress y z_nonexistent
+{err}variable {bf}y{sf} not found
+{txt}{search r(111), local:r(111);}
+
+end of do-file
+{search r(111), local:r(111);}

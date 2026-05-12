@@ -1,0 +1,2 @@
+sysuse auto
+describe

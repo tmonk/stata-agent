@@ -1,0 +1,66 @@
+
+
+. // Test capture noisily wrappers around each error type
+. clear
+
+. sysuse auto, clear
+(1978 automobile data)
+
+. 
+. display "=== Standard error with capture noisily ==="
+=== Standard error with capture noisily ===
+
+. capture noisily regress y z_nonexistent
+variable y not found
+
+. display "_rc = " _rc
+_rc = 111
+
+. 
+. display "=== Mata error with capture ==="
+=== Mata error with capture ===
+
+. capture noisily mata: x = y + z
+                 <istmt>:  3499  y not found
+
+. display "_rc = " _rc
+_rc = 3499
+
+. 
+. display "=== Assertion with capture noisily ==="
+=== Assertion with capture noisily ===
+
+. capture noisily assert 1==0
+assertion is false
+
+. display "_rc = " _rc
+_rc = 9
+
+. 
+. display "=== Custom error with capture noisily ==="
+=== Custom error with capture noisily ===
+
+. capture noisily display as error "custom msg"
+custom msg
+
+. display "_rc = " _rc
+_rc = 0
+
+. 
+. display "=== Program error with capture noisily ==="
+=== Program error with capture noisily ===
+
+. capture program drop badprog2
+
+. program define badprog2
+  1.     error 111
+  2. end
+
+. capture noisily badprog2
+invalid syntax
+
+. display "_rc = " _rc
+_rc = 111
+
+. 
+end of do-file

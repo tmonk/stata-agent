@@ -1,0 +1,109 @@
+
+  ___  ____  ____  ____  ____ ®
+ /__    /   ____/   /   ____/      StataNow 19.5
+___/   /   /___/   /   /___/       SE—Standard Edition
+
+ Statistics and Data Science       Copyright 1985-2025 StataCorp LLC
+                                   StataCorp
+                                   4905 Lakeway Drive
+                                   College Station, Texas 77845 USA
+                                   800-782-8272        https://www.stata.com
+                                   979-696-4600        service@stata.com
+
+Stata license: Unlimited-user network, expiring 29 Jan 2027
+Serial number: 401909305000
+  Licensed to: Thomas Monk
+               LSE
+
+Notes:
+      1. Stata is running in batch mode.
+      2. Unicode is supported; see help unicode_advice.
+      3. Maximum number of variables is set to 5,000 but can be increased;
+          see help set_maxvar.
+
+. do check_stp.do 
+
+. python:
+----------------------------------------------- python (type end to exit) -----
+>>> # Check what _stp module provides
+... try:
+...     import _stp
+...     print("_stp module found!")
+...     print(f"_stp location: {_stp.__file__}")
+...     stp_attrs = [a for a in dir(_stp) if not a.startswith('_')]
+...     print(f"_stp attributes ({len(stp_attrs)}):")
+...     for a in sorted(stp_attrs):
+...         obj = getattr(_stp, a)
+...         info = ""
+...         if callable(obj):
+...             import inspect
+...             try:
+...                 sig = str(inspect.signature(obj))
+...                 info = sig
+...             except:
+...                 info = "(callable)"
+...         print(f"  _stp.{a} {info}")
+... except ImportError:
+...     print("_stp not available (C extension)")
+... 
+... # Also check how the current StataClient runs commands
+_stp not available (C extension)
+>>> # to understand the execution model better
+... import sfi
+>>> print("\n--- How does pystata run Stata commands? ---")
+
+--- How does pystata run Stata commands? ---
+>>> # The StataClient uses the 'stata' or 'pystata' module for running commands
+... # Let's see what's available for execution
+... exec_attrs = [a for a in dir(sfi) if 'run' in a.lower() or 'exec' in a.lowe
+> r() or 'cmd' in a.lower()]
+>>> print(f"Execution-related sfi attributes: {exec_attrs}")
+Execution-related sfi attributes: []
+>>> 
+>>> # Check SFIToolkit for any run method
+... toolkit = sfi.SFIToolkit
+>>> tk_attrs = [a for a in dir(toolkit) if not a.startswith('_')]
+>>> print(f"\nSFIToolkit methods:")
+
+SFIToolkit methods:
+>>> for a in sorted(tk_attrs):
+...     obj = getattr(toolkit, a)
+...     if callable(obj):
+...         print(f"  SFIToolkit.{a}()")
+...     else:
+...         print(f"  SFIToolkit.{a} = {obj}")
+  SFIToolkit.abbrev()
+  SFIToolkit.display()
+  SFIToolkit.displayln()
+  SFIToolkit.eclear()
+  SFIToolkit.error()
+  SFIToolkit.errprint()
+  SFIToolkit.errprintDebug()
+  SFIToolkit.errprintln()
+  SFIToolkit.errprintlnDebug()
+  SFIToolkit.exit()
+  SFIToolkit.formatValue()
+  SFIToolkit.getCallerVersion()
+  SFIToolkit.getRealOfString()
+  SFIToolkit.getTempFile()
+  SFIToolkit.getTempName()
+  SFIToolkit.getWorkingDir()
+  SFIToolkit.isFmt()
+  SFIToolkit.isNumFmt()
+  SFIToolkit.isStrFmt()
+  SFIToolkit.isValidName()
+  SFIToolkit.isValidVariableName()
+  SFIToolkit.listReturn()
+  SFIToolkit.macroExpand()
+  SFIToolkit.makeVarName()
+  SFIToolkit.pollnow()
+  SFIToolkit.pollstd()
+  SFIToolkit.rclear()
+  SFIToolkit.sclear()
+  SFIToolkit.stata()
+  SFIToolkit.strToName()
+>>> end
+-------------------------------------------------------------------------------
+
+. 
+end of do-file
