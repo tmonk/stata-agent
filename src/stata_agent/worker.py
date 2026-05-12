@@ -105,6 +105,7 @@ def _dispatch(stata: Any, method: str, args: dict) -> dict:
             echo=args.get("echo", True),
             max_output_tokens=args.get("max_output_tokens", 1000),
             strict=args.get("strict", False),
+            pre_allocated_log=args.get("pre_allocated_log"),
         )
         return _result_to_dict(result)
 
@@ -140,6 +141,7 @@ def _dispatch(stata: Any, method: str, args: dict) -> dict:
             format=args.get("format", "csv"),
             out_path=args.get("out_path"),
             varlist=args.get("varlist"),
+            obs_range=args.get("obs_range"),
         )
 
     elif method == "results":

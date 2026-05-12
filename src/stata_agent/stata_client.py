@@ -97,10 +97,13 @@ class StataClient:
         echo: bool = True,
         max_output_tokens: int = 1000,
         strict: bool = False,
+        pre_allocated_log: str | None = None,
     ) -> RunResult:
         """Execute Stata code and return structured result."""
         self._ensure_initialised()
         self._rotate_if_needed()
+        if pre_allocated_log:
+            self._log_path = Path(pre_allocated_log)
 
         # Snapshot graphs before
         before = self.snapshot_graphs()
@@ -116,7 +119,7 @@ class StataClient:
                 f'}}\n'
                 f'if _rc != 0 {{\n'
                 f'    display as error "[MCP-ERROR] rc=" _rc\n'
-                f'    display as error "[MCP-MSG] `:display _rc[message]\\'"\n'
+                f'    display as error "[MCP-MSG] `:display _rc[message]\\\'\n'
                 f'}}'
             )
 
@@ -169,7 +172,7 @@ class StataClient:
                 f'}}\n'
                 f'if _rc != 0 {{\n'
                 f'    display as error "[MCP-ERROR] rc=" _rc\n'
-                f'    display as error "[MCP-MSG] `:display _rc[message]\\'"\n'
+                f'    display as error "[MCP-MSG] `:display _rc[message]\\\'\n'
                 f'}}'
             )
 
@@ -255,23 +258,86 @@ class StataClient:
         format: str = "csv",
         out_path: str | None = None,
         varlist: str | None = None,
+        obs_range: str | None = None,
     ) -> dict:
         self._ensure_initialised()
         if out_path is None:
             fd, out_path = tempfile.mkstemp(suffix=f".{format}")
             os.close(fd)
         vl = varlist or "_all"
+        obs_clause = self._get_obs_range_clause(obs_range) if obs_range else ""
+
         if format == "csv":
-            self._stata_run(f'export delimited using "{out_path}", replace {vl}', echo=False)
+            self._stata_run(f'export delimited using "{out_path}", replace {vl}{obs_clause}', echo=False)
         elif format == "json":
-            # Use Stata's jsonio
             self._stata_run(f'jsonio set output "{out_path}", replace', echo=False)
-            self._stata_run(f"jsonio export {vl}", echo=False)
+            self._stata_run(f"jsonio export {vl}{obs_clause}", echo=False)
+        elif format == "arrow":
+            try:
+                import pyarrow as pa
+                from sfi import Data
+
+                # Build pyarrow table from SFI
+                var_count = Data.getVarCount()
+                var_names = [Data.getVarName(i) for i in range(var_count)]
+
+                # Select requested variables
+                selected = var_names
+                if varlist:
+                    if isinstance(varlist, str):
+                        varlist = varlist.split()
+                    selected = [v for v in var_names if v in varlist]
+
+                # Determine obs range
+                obs_total = Data.getObsTotal()
+                if obs_range:
+                    parts = obs_range.split(":")
+                    obs_start = max(0, int(parts[0]) - 1)
+                    obs_end = min(int(parts[1]), obs_total)
+                else:
+                    obs_start = 0
+                    obs_end = obs_total
+
+                # Build columns
+                arrays = []
+                for name in selected:
+                    idx = Data.getVarIndex(name)
+                    col = []
+                    for obs_idx in range(obs_start, obs_end):
+                        val = Data.get(idx, obs_idx)
+                        col.append(val)
+                    arrays.append(pa.array(col))
+
+                schema = pa.schema([
+                    (name, pa.float64() if arrays[i].type == pa.null() else arrays[i].type)
+                    for i, name in enumerate(selected)
+                ])
+                table = pa.Table.from_arrays(arrays, schema=schema)
+
+                with pa.OSFile(str(out_path), "wb") as sink:
+                    with pa.ipc.new_file(sink, table.schema) as writer:
+                        writer.write_table(table)
+
+                size = os.path.getsize(out_path)
+                return {"path": out_path, "size_bytes": size}
+            except ImportError:
+                raise ValueError("pyarrow not installed; use --format csv or json instead")
         else:
             raise ValueError(f"Unsupported format: {format}")
         size = os.path.getsize(out_path)
         return {"path": out_path, "size_bytes": size}
 
+    def _get_obs_range_clause(self, obs_range: str) -> str:
+        """Parse 'start:end' obs_range into a Stata in clause."""
+        if not obs_range:
+            return ""
+        try:
+            parts = obs_range.split(":")
+            start = int(parts[0])
+            end = int(parts[1])
+            return f" in {start}/{end}"
+        except (ValueError, IndexError):
+            return ""
     # ------------------------------------------------------------------
     # Results
     # ------------------------------------------------------------------

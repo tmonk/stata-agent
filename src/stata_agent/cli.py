@@ -267,6 +267,7 @@ def cmd_inspect_get(args: Any) -> int:
         "varlist": args.varlist,
         "format": args.format,
         "out_path": args.out,
+        "obs_range": args.obs_range,
     })
     print(f"Exported to: {result.get('path', '?')}")
     print(f"Size: {result.get('size_bytes', 0)} bytes")
@@ -773,9 +774,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     insp_get = inspect_sub.add_parser("get", help="Export data")
     insp_get.add_argument("--session", default="default")
-    insp_get.add_argument("--format", default="csv", choices=["csv", "json"])
+    insp_get.add_argument("--format", default="csv", choices=["csv", "json", "arrow"])
     insp_get.add_argument("--out", required=True)
     insp_get.add_argument("varlist", nargs="*")
+    insp_get.add_argument("--obs-range", default=None, help="Observation range to export (e.g. 1:100)")
 
     # ---- graph ----
     graph = subparsers.add_parser("graph", help="Graph operations")

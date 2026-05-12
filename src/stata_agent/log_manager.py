@@ -61,6 +61,12 @@ class LogRotator:
     def get_current_path(self) -> Path:
         return self.current_path
 
+    def next_path(self) -> Path:
+        """Return the path that would be used on the next rotation, without rotating."""
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        next_seq = self._sequence + 1
+        return self.log_dir / f"{self.session_name}_{ts}_{next_seq:03d}.log"
+
     def cleanup_old(self) -> int:
         """Remove log files older than TTL.
 
