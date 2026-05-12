@@ -28,6 +28,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from stata_agent.rpc_client import RpcClient, RpcError
+from stata_agent.statest.runner import run_tests, run_test, discover_tests
+from stata_agent.statest.models import TestSuiteSummary
 
 SESSION_DIR = Path.home() / ".cache" / "mcp-stata" / "sessions"
 LOG_DIR = Path.home() / ".cache" / "mcp-stata" / "logs"
@@ -616,6 +618,93 @@ def _truncate_output(text: str, max_lines: int = 0) -> str:
     return "\n".join(lines[:max_lines]) + f"\n... (truncated, {len(lines)} total lines)"
 
 
+def cmd_test_discover(args: Any) -> int:
+    """Discover test files without running them."""
+    files = discover_tests(args.path)
+    if not files:
+        print(f"[statest] No test files found under {args.path}")
+        return 0
+    for f in files:
+        print(f)
+    print(f"[statest] Found {len(files)} test file(s)")
+    return 0
+
+
+def cmd_test_run(args: Any) -> int:
+    """Run a single test file."""
+    # Ensure daemon is running
+    _ensure_daemon(args)
+
+    import asyncio
+    result = asyncio.run(run_test(
+        path=args.path,
+        base_session=args.session,
+    ))
+
+    _print_test_result(result, json_output=getattr(args, "json", False))
+    return 0 if result.success else 1
+
+
+def cmd_test_run_all(args: Any) -> int:
+    """Run all tests under a directory."""
+    # Ensure daemon is running
+    _ensure_daemon(args)
+
+    import asyncio
+    summary = asyncio.run(run_tests(
+        path=args.path,
+        parallel=getattr(args, "parallel", False),
+        max_workers=getattr(args, "workers", 4),
+        junit_xml_path=getattr(args, "junit", None),
+    ))
+
+    _print_test_summary(summary, json_output=getattr(args, "json", False))
+    return 1 if summary.failed > 0 else 0
+
+
+def _print_test_result(result, json_output: bool = False) -> None:
+    """Print a single test result."""
+    if json_output:
+        import json
+        print(json.dumps(result.model_dump()))
+        return
+
+    status = "\u2713" if result.success else "\u2717"
+    print(f"[statest] {status} {result.test_path} ({result.duration_seconds:.1f}s)")
+    if not result.success:
+        if result.failure:
+            f = result.failure
+            print(f"[statest]   assertion {f.assertion_index}: {f.command}")
+            print(f"[statest]   expected: {f.expected}")
+            print(f"[statest]   actual: {f.actual}")
+            print(f"[statest]   rc: {f.rc}")
+        else:
+            print(f"[statest]   rc: {result.rc}")
+        if result.log_path:
+            print(f"[statest]   log: {result.log_path}")
+
+
+def _print_test_summary(summary, json_output: bool = False) -> None:
+    """Print a full test suite summary."""
+    if json_output:
+        import json
+        print(json.dumps(summary.model_dump()))
+        return
+
+    print(f"[statest] Ran {summary.total_tests} tests")
+    if summary.failed > 0:
+        print(f"[statest] \u2717 {summary.failed} failed, {summary.passed} passed")
+        print()
+        for r in summary.results:
+            if not r.success:
+                _print_test_result(r)
+                print()
+    else:
+        print(f"[statest] \u2713 {summary.passed} passed")
+
+    if summary.junit_xml_path:
+        print(f"[statest] JUnit XML: {summary.junit_xml_path}")
+
 # ======================================================================
 # Parser construction
 # ======================================================================
@@ -766,6 +855,26 @@ def build_parser() -> argparse.ArgumentParser:
     task_list = task_sub.add_parser("list", help="List background tasks")
     task_list.add_argument("--session", default="default")
 
+
+    # ---- test ----
+    test = subparsers.add_parser("test", help="Run statest test suites")
+    test_sub = test.add_subparsers(dest="test_cmd")
+
+    test_discover = test_sub.add_parser("discover", help="Discover test files")
+    test_discover.add_argument("path", help="Path to search for test files")
+
+    test_run = test_sub.add_parser("run", help="Run a single test file")
+    test_run.add_argument("path", help="Path to test .do file")
+    test_run.add_argument("--session", default="default")
+    test_run.add_argument("--mock", action="store_true", help="Use mock backend")
+
+    test_run_all = test_sub.add_parser("run-all", help="Run all tests under a path")
+    test_run_all.add_argument("path", help="Path to search for test files")
+    test_run_all.add_argument("--session", default="default")
+    test_run_all.add_argument("--mock", action="store_true", help="Use mock backend")
+    test_run_all.add_argument("--parallel", action="store_true", help="Run tests in parallel")
+    test_run_all.add_argument("--workers", type=int, default=4, help="Max parallel workers")
+    test_run_all.add_argument("--junit", help="Output JUnit XML to this path")
     return parser
 
 
@@ -870,6 +979,17 @@ def main(argv: list[str] | None = None) -> int:
             print("Usage: stata task status|cancel|list [options]")
             return 1
 
+
+    elif args.command == "test":
+        if args.test_cmd == "discover":
+            return cmd_test_discover(args)
+        elif args.test_cmd == "run":
+            return cmd_test_run(args)
+        elif args.test_cmd == "run-all":
+            return cmd_test_run_all(args)
+        else:
+            print("Usage: stata test discover|run|run-all [options]")
+            return 1
     else:
         parser.print_help()
         return 1
