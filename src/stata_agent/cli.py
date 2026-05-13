@@ -91,10 +91,13 @@ def _start_daemon(session: str = "default", mock: bool = False) -> int:
     if mock and daemon_module == "stata_agent.daemon":
         cmd.append("--mock")
 
+    # Use DEVNULL so the child daemon isn't tied to the parent's pipe lifetime.
+    # When the CLI process exits, pipes would close and the daemon could get
+    # SIGPIPE if it writes to stdout/stderr later.
     proc = subprocess.Popen(
         cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
         env=env,
         start_new_session=True,
     )
