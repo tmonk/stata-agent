@@ -173,9 +173,17 @@ def _check_skills_for_agent(
     else:
         return SkillStatus(registered=False)
 
-    if not link.exists():
+    if not link.exists(follow_symlinks=False):
         return SkillStatus(registered=False)
     if link.is_symlink():
+        if not link.exists():
+            # Dangling symlink — stale
+            return SkillStatus(
+                registered=False,
+                link_type="symlink",
+                target_path=str(link),
+                stale=True,
+            )
         target = str(link.resolve())
         stale = expected_target is not None and expected_target != target
         return SkillStatus(
