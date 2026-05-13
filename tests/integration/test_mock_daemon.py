@@ -60,7 +60,7 @@ def mock_daemon():
 class TestHealth:
     def test_daemon_health(self, mock_daemon: RpcClient):
         result = mock_daemon.call("health", {})
-        assert result.get("status") == "running"
+        assert result.get("status") == "ok"
         assert result.get("pid", 0) > 0
         assert result.get("session_name") == "integration_test"
 
@@ -93,7 +93,7 @@ class TestRun:
             "background": True,
         })
         assert "task_id" in result
-        assert result.get("status") == "running"
+        assert result.get("status") == "ok"
 
     def test_error_response(self, mock_daemon: RpcClient):
         result = mock_daemon.call("run", {"code": "error 111", "echo": False})

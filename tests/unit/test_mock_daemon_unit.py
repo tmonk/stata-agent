@@ -71,7 +71,7 @@ class TestMockDaemon:
     def test_mock_dispatch_health(self) -> None:
         daemon = MockDaemon()
         result = self._dispatch(daemon, "health")
-        assert result["status"] == "running"
+        assert result["status"] == "ok"
         assert "pid" in result
 
     # -- inspect_describe (empty state) -----------------------------------
