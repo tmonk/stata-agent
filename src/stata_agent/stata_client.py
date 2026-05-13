@@ -6,12 +6,15 @@ process — only inside worker subprocesses.
 
 from __future__ import annotations
 
+import logging
 import os
 import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 from stata_agent.error_extractor import ErrorExtractor
 from stata_agent.log_manager import (
@@ -423,30 +426,27 @@ class StataClient:
             raise RuntimeError("StataClient not initialised. Call init() first.")
 
     def _stata_run(self, code: str, echo: bool = False) -> str:
-        """Execute code in Stata and capture output via the log file.
-
-        pystata.stata.run() internally redirects sys.stdout to StataDisplay
-        (which buffers to Stata's internal C-level buffer), so IPython's
-        capture_output() cannot capture Stata output. Instead we read the
-        delta from the log file before/after execution.
-        """
+        """Execute code in Stata and capture output via the log file."""
         from sfi import Data  # noqa: F401 — ensure SFI is loaded
         import pystata
 
-        # Record current log size before execution
         before_size = 0
-        if self._log_path and Path(self._log_path).exists():
-            before_size = Path(self._log_path).stat().st_size
+        if self._log_path and self._log_path.exists():
+            before_size = self._log_path.stat().st_size
 
         pystata.stata.run(code, quietly=not echo)
 
         # Read only new content written to the log
-        if self._log_path and Path(self._log_path).exists():
-            after_size = Path(self._log_path).stat().st_size
+        if self._log_path and self._log_path.exists():
+            after_size = self._log_path.stat().st_size
+            logger.info("_stata_run log=%s before=%d after=%d added=%d",
+                         self._log_path, before_size, after_size, after_size - before_size)
             if after_size > before_size:
-                with open(self._log_path, "r", encoding="utf-8", errors="replace") as f:
+                with self._log_path.open("r", encoding="utf-8", errors="replace") as f:
                     f.seek(before_size)
                     return f.read()
+        else:
+            logger.warning("_stata_run log path %s does not exist", self._log_path)
         return ""
 
     def _read_log_tail(self) -> str:
