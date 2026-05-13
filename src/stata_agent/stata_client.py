@@ -66,7 +66,7 @@ class StataClient:
             pass
 
         # Open a text-mode log
-        self._log_path = self._rotator.current_path()
+        self._log_path = self._rotator.current_path
 
         self._stata_run(
             f'cap log close _mcp_session',
