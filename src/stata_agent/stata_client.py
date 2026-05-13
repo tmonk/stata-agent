@@ -38,7 +38,7 @@ class StataClient:
         self.session_name = session_name
         self.log_dir = Path(log_dir) if log_dir else LOG_DIR_DEFAULT
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        self._rotator = LogRotator(session_name, log_dir=str(self.log_dir))
+        self._rotator = LogRotator(session_name, log_dir=self.log_dir)
         self._extractor = ErrorExtractor()
         self._initialised = False
         self._sfi_available = False
