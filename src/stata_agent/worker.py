@@ -23,6 +23,25 @@ def _worker_main(conn: Connection, session_name: str = "default") -> None:
     Initializes Stata via pystata (or fallback), then enters a
     command loop reading from the pipe.
     """
+    # Try to configure pystata via stata_setup before importing SFI.
+    # stata_setup (on PyPI) adds the Stata .app bundle's utilities/
+    # path to sys.path so that pystata can be imported.
+    try:
+        import stata_setup
+        from stata_agent.discovery import find_stata_candidates
+
+        candidates = find_stata_candidates()
+        if candidates:
+            stata_path, edition = candidates[0]
+            # Derive the Stata sysdir from the binary path
+            # e.g. /Applications/StataNow/StataSE.app/Contents/MacOS/StataSE
+            #   -> /Applications/StataNow/StataSE.app/Contents
+            sysdir = os.path.dirname(os.path.dirname(stata_path))
+            edition_lower = edition.lower()
+            stata_setup.config(sysdir, edition_lower, splash=False)
+    except Exception:
+        pass  # Fall through — will report pystata not available
+
     # Import pystata-related modules here so the daemon process
     # doesn't need them.
     try:

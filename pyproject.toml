@@ -35,6 +35,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
+dependencies = [
+    "stata-setup>=0.1.3",
+]
 
 [project.urls]
 Homepage = "https://github.com/tmonk/stata-agent"
