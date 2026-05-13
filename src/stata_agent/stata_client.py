@@ -426,28 +426,32 @@ class StataClient:
             raise RuntimeError("StataClient not initialised. Call init() first.")
 
     def _stata_run(self, code: str, echo: bool = False) -> str:
-        """Execute code in Stata and capture output via the log file."""
+        """Execute code in Stata and capture output.
+
+        pystata.stata.run() consumes the C-level output buffer internally and
+        prints results via _print_no_streaming_output() which writes to
+        config.stoutputf (the original sys.stdout at pystata import time).
+        We temporarily replace config.stoutputf with a StringIO to capture it.
+        """
+        import io
         from sfi import Data  # noqa: F401 — ensure SFI is loaded
         import pystata
+        from pystata import config
 
-        before_size = 0
-        if self._log_path and self._log_path.exists():
-            before_size = self._log_path.stat().st_size
+        capture = io.StringIO()
+        original_stoutputf = config.stoutputf
+        config.stoutputf = capture
 
-        pystata.stata.run(code, quietly=not echo)
+        try:
+            pystata.stata.run(code, quietly=not echo)
+        except SystemError:
+            # Stata errors produce output before the exception is raised.
+            # The output buffer is consumed by _print_no_streaming_output
+            # inside stata.run() and written to our capture stream.
+            pass
 
-        # Read only new content written to the log
-        if self._log_path and self._log_path.exists():
-            after_size = self._log_path.stat().st_size
-            logger.info("_stata_run log=%s before=%d after=%d added=%d",
-                         self._log_path, before_size, after_size, after_size - before_size)
-            if after_size > before_size:
-                with self._log_path.open("r", encoding="utf-8", errors="replace") as f:
-                    f.seek(before_size)
-                    return f.read()
-        else:
-            logger.warning("_stata_run log path %s does not exist", self._log_path)
-        return ""
+        config.stoutputf = original_stoutputf
+        return capture.getvalue()
 
     def _read_log_tail(self) -> str:
         """Read recent log content for error extraction."""
