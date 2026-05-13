@@ -28,6 +28,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
+from stata_agent import __version__
 from stata_agent.rpc_client import RpcClient, RpcError
 from stata_agent.statest.runner import run_tests, run_test, discover_tests
 from stata_agent.statest.models import TestSuiteSummary
@@ -82,10 +83,16 @@ def _start_daemon(session: str = "default", mock: bool = False) -> int:
         daemon_module = "stata_agent.daemon"
 
     env = os.environ.copy()
-    env["MCP_STATA_SESSION"] = session
+    env["STATA_AGENT_SESSION"] = session
+
+    # Build subprocess command using -m module mode so sys.argv is clean
+    cmd = [sys.executable, "-m", daemon_module, "--session", session]
+    # Only pass --mock to the real daemon (mock_backend doesn't accept it)
+    if mock and daemon_module == "stata_agent.daemon":
+        cmd.append("--mock")
 
     proc = subprocess.Popen(
-        [sys.executable, "-c", f"import {daemon_module}; {daemon_module}.main()"],
+        cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=env,
@@ -825,6 +832,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the full argument parser."""
     parser = argparse.ArgumentParser(prog="stata-agent", description="CLI-native Stata integration")
     parser.add_argument("--json", action="store_true", help="Output in JSON format")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command")
 
     # ---- daemon ----
@@ -1018,6 +1026,11 @@ def main(argv: list[str] | None = None) -> int:
     # Auto-update check (skip for upgrade and install-skills to prevent recursion)
     if argv is None:
         argv = sys.argv[1:]
+    # Handle --version before auto-upgrade check
+    if '--version' in argv or '-v' in argv:
+        print(f"stata-agent {__version__}")
+        return 0
+
     # Determine subcommand without full parse
     subcommand = None
     for i, a in enumerate(argv):
@@ -1028,7 +1041,7 @@ def main(argv: list[str] | None = None) -> int:
         ):
             subcommand = a
             break
-    # Run auto-upgrade for all commands except upgrade, install-skills, and --help/--version
+    # Run auto-upgrade for all commands except upgrade, install-skills
     if subcommand not in ("upgrade", "install-skills"):
         try:
             from stata_agent.skills_installer import check_and_upgrade
