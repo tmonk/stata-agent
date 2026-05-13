@@ -604,6 +604,7 @@ name = "stata-agent"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "pyarrow" },
     { name = "pydantic" },
     { name = "stata-setup" },
 ]
@@ -620,6 +621,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "pyarrow", specifier = ">=24.0.0" },
     { name = "pyarrow", marker = "extra == 'data-browser'", specifier = ">=14.0" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "stata-setup", specifier = ">=0.1.3" },

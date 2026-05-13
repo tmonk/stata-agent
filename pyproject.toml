@@ -36,6 +36,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
 dependencies = [
+    "pyarrow>=24.0.0",
     "pydantic>=2.13.4",
     "stata-setup>=0.1.3",
 ]
