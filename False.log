@@ -1,11 +1,5 @@
 
 . capture noisily {
-.     display "stata-live-ok"
-stata-live-ok
-. }
+.     do "/tmp/test_stata_log.do"
 
-. if _rc != 0 {
-.     display as error "[MCP-ERROR] rc=" _rc
-.     display as error "[MCP-MSG] `:display _rc[message]\'
-. }
-
+. cap log close _mcp_session
