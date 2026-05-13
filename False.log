@@ -1,5 +1,0 @@
-
-. capture noisily {
-.     do "/tmp/test_stata_log.do"
-
-. cap log close _mcp_session
