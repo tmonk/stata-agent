@@ -1,0 +1,14 @@
+{
+  "name": "stata-agent",
+  "interface": { "displayName": "stata-agent" },
+  "plugins": [
+    {
+      "name": "stata-agent",
+      "description": "Stata CLI tools and skills for AI coding agents.",
+      "version": "{{VERSION}}",
+      "source": { "source": "local", "path": "../../" },
+      "policy": { "installation": "INSTALLED_BY_DEFAULT" },
+      "category": "Development"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "stata-agent",
+  "version": "{{VERSION}}",
+  "description": "stata-agent — CLI-native Stata integration for AI agents. Run code, inspect data, retrieve r()/e() results, export graphs, and test do-files.",
+  "author": { "name": "Thomas Monk", "email": "t.d.monk@lse.ac.uk" },
+  "license": "MIT",
+  "homepage": "https://github.com/tmonk/mcp-stata/tree/main/stata-agent",
+  "keywords": ["stata-agent", "statistics", "econometrics", "data-analysis"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "stata-agent",
+    "shortDescription": "Stata CLI tools and skills for AI agents.",
+    "category": "Development"
+  }
+}

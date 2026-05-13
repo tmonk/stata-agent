@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "stata-agent upgrade --quiet 2>/dev/null; echo 'stata-agent ready. Use /stata-run, /stata-inspect, or ask whether the toolkit is available.'",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
