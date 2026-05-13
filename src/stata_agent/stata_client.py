@@ -216,11 +216,17 @@ class StataClient:
             lbl = Data.getVarLabel(i)
             typ = Data.getVarType(i)
             vars_info.append({"name": name, "label": lbl, "type": typ})
+        dataset_name = ""
+        try:
+            dataset_name = Data.getDataset() or ""
+        except AttributeError:
+            # sfi.Data.getDataset() not available in all Stata versions
+            pass
         return {
             "variables": vars_info,
             "obs_count": Data.getObsTotal(),
             "var_count": Data.getVarCount(),
-            "dataset_name": Data.getDataset() or "",
+            "dataset_name": dataset_name,
         }
 
     def inspect_summary(self, varlist: str | None = None) -> dict:
