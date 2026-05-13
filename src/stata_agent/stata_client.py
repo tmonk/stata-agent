@@ -423,21 +423,31 @@ class StataClient:
             raise RuntimeError("StataClient not initialised. Call init() first.")
 
     def _stata_run(self, code: str, echo: bool = False) -> str:
-        """Execute code in Stata and capture output."""
-        from sfi import Data  # noqa: F401 — ensure SFI is loaded
-        try:
-            import pystata
-            from IPython.utils.capture import capture_output
+        """Execute code in Stata and capture output via the log file.
 
-            with capture_output() as cap:
-                pystata.stata.run(code, quietly=not echo)
-            return cap.stdout
-        except ImportError:
-            # Fallback if IPython capture isn't available
-            import pystata
-            pystata.stata.run(code, quietly=not echo)
-            # Read the last N lines from log
-            return self._read_log_tail()
+        pystata.stata.run() internally redirects sys.stdout to StataDisplay
+        (which buffers to Stata's internal C-level buffer), so IPython's
+        capture_output() cannot capture Stata output. Instead we read the
+        delta from the log file before/after execution.
+        """
+        from sfi import Data  # noqa: F401 — ensure SFI is loaded
+        import pystata
+
+        # Record current log size before execution
+        before_size = 0
+        if self._log_path and Path(self._log_path).exists():
+            before_size = Path(self._log_path).stat().st_size
+
+        pystata.stata.run(code, quietly=not echo)
+
+        # Read only new content written to the log
+        if self._log_path and Path(self._log_path).exists():
+            after_size = Path(self._log_path).stat().st_size
+            if after_size > before_size:
+                with open(self._log_path, "r", encoding="utf-8", errors="replace") as f:
+                    f.seek(before_size)
+                    return f.read()
+        return ""
 
     def _read_log_tail(self) -> str:
         """Read recent log content for error extraction."""
