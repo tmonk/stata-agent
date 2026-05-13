@@ -389,7 +389,7 @@ class StataClient:
         self._ensure_initialised()
         if name:
             self._stata_run(f'graph display "{name}"', echo=False)
-        self._stata_run(f'graph export "{out_path}", replace {fmt}', echo=False)
+        self._stata_run(f'graph export "{out_path}", replace as({fmt})', echo=False)
         size = os.path.getsize(out_path)
         return {"file_path": out_path, "size_bytes": size}
 
