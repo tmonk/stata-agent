@@ -384,9 +384,13 @@ class MockDaemon:
         elif method == "inspect_get":
             # Create a mock export file so the client can read it
             out_path = args.get("out_path", f"/tmp/mock_{session}_export.csv")
-            Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-            Path(out_path).write_text("x,s\n1,hello\n.a,\n.z,\n")
-            return {"path": out_path, "size_bytes": Path(out_path).stat().st_size}
+            try:
+                Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+                Path(out_path).write_text("x,s\n1,hello\n.a,\n.z,\n")
+                size_bytes = Path(out_path).stat().st_size
+            except (OSError, PermissionError):
+                return {"path": "", "size_bytes": 0, "error": "cannot write output"}
+            return {"path": out_path, "size_bytes": size_bytes}
 
         elif method == "graph_list":
             state = _get_state(session)

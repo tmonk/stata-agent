@@ -4,3 +4,6 @@ __pycache__/
 *.pyc
 False.log
 test_pystata_log.log
+stata.log
+
+# Random artifact files from fuzz testing
