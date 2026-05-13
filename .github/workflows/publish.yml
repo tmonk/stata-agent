@@ -1,0 +1,46 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  id-token: write  # Required for OIDC trusted publishing
+  contents: read
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/stata-agent
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build package
+        run: uv build
+
+      - name: Verify wheel contents
+        run: |
+          uv pip install --prefix /tmp/test-wheel dist/*.whl
+          python -c "
+          import importlib.resources, sys
+          sys.path.insert(0, '/tmp/test-wheel/lib/python3.11/site-packages')
+          p = importlib.resources.files('stata_agent') / 'plugin'
+          print(f'Plugin dir: {p}')
+          print(f'Exists: {p.is_dir()}')
+          skills = list((p / 'skills').iterdir())
+          print(f'Skills: {skills}')
+          "
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
