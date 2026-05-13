@@ -350,7 +350,7 @@ class MockDaemon:
             return {"acknowledged": True, "worker_restarted": True, "note": "Session state has been reset after break"}
 
         elif method == "health":
-            return {"status": "running", "pid": os.getpid(), "session_name": self.session_name}
+            return {"status": "ok", "pid": os.getpid(), "session_name": self.session_name}
 
         elif method == "stop":
             session_arg = args.get("session", "")
