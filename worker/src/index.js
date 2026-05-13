@@ -12,7 +12,7 @@
  *   GET  /health                  liveness probe
  *
  * Configuration (wrangler.toml [vars]):
- *   GITHUB_REPO         'owner/name'. Default 'tmonk/mcp-stata'.
+ *   GITHUB_REPO         'owner/name'. Default 'tmonk/stata-agent'.
  *   INSTALL_REF         git ref to serve. Default 'main'.
  *   INSTALL_SUBPATH     path within the repo. Default 'stata-agent'.
  *
@@ -21,7 +21,7 @@
  */
 
 const DEFAULTS = {
-  GITHUB_REPO: 'tmonk/mcp-stata',
+  GITHUB_REPO: 'tmonk/stata-agent',
   INSTALL_REF: 'main',
   INSTALL_SUBPATH: 'stata-agent',
 };

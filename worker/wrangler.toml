@@ -3,7 +3,7 @@ main = "src/index.js"
 compatibility_date = "2026-05-13"
 
 [vars]
-GITHUB_REPO = "tmonk/mcp-stata"
+GITHUB_REPO = "tmonk/stata-agent"
 INSTALL_REF = "main"
 INSTALL_SUBPATH = "stata-agent"
 

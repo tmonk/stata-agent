@@ -15,7 +15,7 @@ This file documents sensible defaults used for open questions in the implementat
 Discovered dynamically via `uv tool dir --bin` at runtime. Not hard-coded to `%APPDATA%\uv\bin` or `%USERPROFILE%\.local\bin`.
 
 ## 5. GitHub repository structure
-stata-agent currently lives as a standalone repo at `~/projects/stata-agent`. The plan references `tmonk/mcp-stata` with `INSTALL_SUBPATH=stata-agent`. The Worker `GITHUB_REPO` wrangler var is set to `tmonk/mcp-stata`.
+stata-agent currently lives as a standalone repo at `~/projects/stata-agent`.
 
 ## 6. `stata-agent doctor --json`
 Implemented in cli.py and verify.py. This is the single source of truth consumed by the installer shell script.
@@ -41,5 +41,5 @@ uv bootstrap, PyPI/Worker checks, installer downloads, and telemetry all respect
 ## 13. Fish shell
 `fish_add_path` used in `ensure_path()` when `~/.config/fish/config.fish` exists. Fish version compatibility assumed for the `fish_add_path` builtin.
 
-## 14. `mcp-client.js` PyPI version reference
-Obsolete. The workbench updater delegates to `stata-agent upgrade --quiet` and does not replicate PyPI fetch logic.
+## 14. Workbench updater
+Obsolete assumption. The workbench updater delegates to `stata-agent upgrade --quiet` and does not replicate PyPI fetch logic.

@@ -24,7 +24,7 @@ $ProgressPreference = 'SilentlyContinue'
 # ── Configuration ─────────────────────────────────────────────────────────────
 $InstallHost = 'stata-agent-install.tdmonk.com'
 $TelemetryUrl = "https://${InstallHost}/telemetry"
-$GithubRepoUrl = 'https://github.com/tmonk/mcp-stata/tree/main/stata-agent'
+$GithubRepoUrl = 'https://github.com/tmonk/stata-agent'
 $ScriptVersion = '0.1.0'
 $TranscriptLog = Join-Path $env:TEMP "stata-agent-install-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 

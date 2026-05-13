@@ -42,7 +42,7 @@ function makeRequest({
 // Helper to build a minimal env
 function makeEnv(overrides = {}) {
   return {
-    GITHUB_REPO: 'tmonk/mcp-stata',
+    GITHUB_REPO: 'tmonk/stata-agent',
     INSTALL_REF: 'main',
     INSTALL_SUBPATH: 'stata-agent',
     ...overrides,
@@ -405,11 +405,11 @@ test('buildAnalyticsDataPoint maps network to blob[16]', () => {
 });
 
 test('buildAnalyticsDataPoint maps repo@ref to blob[17]', () => {
-  const env = makeEnv({ GITHUB_REPO: 'tmonk/mcp-stata', INSTALL_REF: 'v2.0.0' });
+  const env = makeEnv({ GITHUB_REPO: 'tmonk/stata-agent', INSTALL_REF: 'v2.0.0' });
   const request = makeRequest();
   const event = { event: 'install_start', install_id: 'abc' };
   const dp = buildAnalyticsDataPoint(env, request, event);
-  assert.equal(dp.blobs[17], 'tmonk/mcp-stata@v2.0.0');
+  assert.equal(dp.blobs[17], 'tmonk/stata-agent@v2.0.0');
 });
 
 test('buildAnalyticsDataPoint maps schema_version to blob[18]', () => {

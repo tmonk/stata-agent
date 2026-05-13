@@ -20,7 +20,7 @@ SCRIPT_VERSION="0.1.0"
 # ── Globals ──────────────────────────────────────────────────────────────────
 INSTALL_HOST="stata-agent-install.tdmonk.com"
 TELEMETRY_URL="https://${INSTALL_HOST}/telemetry"
-GITHUB_REPO_URL="https://github.com/tmonk/mcp-stata/tree/main/stata-agent"
+GITHUB_REPO_URL="https://github.com/tmonk/stata-agent"
 LOG_FILE="${HOME}/.local/state/stata-agent/install.log"
 INSTALL_ID=""
 USER_ID=""
@@ -79,7 +79,7 @@ show_failure() {
   printf "%b%s%b\n" "${RED}${BOLD}" "FAILED: ${ACTION_LABEL} COULD NOT BE COMPLETED" "${RESET}" >&2
   rule "${RED}" >&2
   printf >&2 "%b%s%b %s\n" "${DIM}" "log    " "${RESET}" "$LOG_FILE"
-  printf >&2 "%b%s%b %s\n" "${DIM}" "report " "${RESET}" "https://github.com/tmonk/mcp-stata/issues/new"
+  printf >&2 "%b%s%b %s\n" "${DIM}" "report " "${RESET}" "https://github.com/tmonk/stata-agent/issues/new"
 }
 
 # ── Telemetry ────────────────────────────────────────────────────────────────

@@ -37,9 +37,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/tmonk/mcp-stata/tree/main/stata-agent"
-Repository = "https://github.com/tmonk/mcp-stata"
-Documentation = "https://github.com/tmonk/mcp-stata/tree/main/stata-agent"
+Homepage = "https://github.com/tmonk/stata-agent"
+Repository = "https://github.com/tmonk/stata-agent"
+Documentation = "https://github.com/tmonk/stata-agent"
 
 [project.scripts]
 stata-agent = "stata_agent.cli:main"
