@@ -93,7 +93,7 @@ class TestRun:
             "background": True,
         })
         assert "task_id" in result
-        assert result.get("status") == "ok"
+        assert result.get("status") == "running"
 
     def test_error_response(self, mock_daemon: RpcClient):
         result = mock_daemon.call("run", {"code": "error 111", "echo": False})
