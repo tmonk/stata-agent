@@ -78,9 +78,14 @@ def _route_command(code: str, session: str = "default") -> dict[str, Any]:
     norm = _normalize_command(code)
     state = _get_state(session)
 
-    # Exact match first
-    if norm in _CANNED:
-        entry = _CANNED[norm]
+    # Exact match first, then prefix match (e.g., "sysuse auto, clear" matches "sysuse auto")
+    entry = _CANNED.get(norm)
+    if entry is None:
+        for pattern in sorted(_CANNED, key=len, reverse=True):
+            if norm.startswith(pattern):
+                entry = _CANNED[pattern]
+                break
+    if entry is not None:
         output = entry["output"]
 
         # Update state for known commands
@@ -377,7 +382,11 @@ class MockDaemon:
             return {"text": "", "rows": [], "total_obs": 0, "returned": 0}
 
         elif method == "inspect_get":
-            return {"path": "/tmp/mock_export.csv", "size_bytes": 0}
+            # Create a mock export file so the client can read it
+            out_path = args.get("out_path", f"/tmp/mock_{session}_export.csv")
+            Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(out_path).write_text("x,s\n1,hello\n.a,\n.z,\n")
+            return {"path": out_path, "size_bytes": Path(out_path).stat().st_size}
 
         elif method == "graph_list":
             state = _get_state(session)
