@@ -220,10 +220,12 @@ class TestDiscoverBinary:
         result = _discover_stata_agent_binary()
         assert result == str(fake_bin)
 
-    def test_env_override_not_found(self, monkeypatch):
+    def test_env_override_not_found(self, tmp_path, monkeypatch):
         from stata_agent.skills_installer import _discover_stata_agent_binary
 
         monkeypatch.setenv("STATA_AGENT_PATH", "/nonexistent/path")
+        # Clear PATH to prevent fallthrough discovery in dev venv
+        monkeypatch.setenv("PATH", str(tmp_path))
         result = _discover_stata_agent_binary()
         assert result is None
 
