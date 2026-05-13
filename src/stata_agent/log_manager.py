@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-LOG_DIR_DEFAULT = Path.home() / ".cache" / "mcp-stata" / "logs"
+LOG_DIR_DEFAULT = Path.home() / ".cache" / "stata-agent" / "logs"
 
 
 class LogRotator:

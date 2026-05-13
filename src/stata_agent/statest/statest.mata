@@ -1,4 +1,4 @@
-* statest.mata - Mata testing library for mcp-stata
+* statest.mata - Mata testing library for stata-agent
 
 mata:
 

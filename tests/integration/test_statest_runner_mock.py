@@ -28,7 +28,7 @@ def mock_daemon():
     t = threading.Thread(target=_start, daemon=True)
     t.start()
 
-    sock_path = Path.home() / ".cache" / "mcp-stata" / "sessions" / "statest_test.sock"
+    sock_path = Path.home() / ".cache" / "stata-agent" / "sessions" / "statest_test.sock"
     for _ in range(100):
         if sock_path.exists():
             break
@@ -47,7 +47,7 @@ def mock_daemon():
     except Exception:
         pass
     sock_path.unlink(missing_ok=True)
-    meta_path = Path.home() / ".cache" / "mcp-stata" / "sessions" / "statest_test.json"
+    meta_path = Path.home() / ".cache" / "stata-agent" / "sessions" / "statest_test.json"
     meta_path.unlink(missing_ok=True)
 
 

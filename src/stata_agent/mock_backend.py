@@ -229,7 +229,7 @@ class MockDaemon:
         self._shutdown_event = asyncio.Event()
 
     async def start(self):
-        cache_dir = Path.home() / ".cache" / "mcp-stata" / "sessions"
+        cache_dir = Path.home() / ".cache" / "stata-agent" / "sessions"
         cache_dir.mkdir(parents=True, exist_ok=True)
 
         import sys

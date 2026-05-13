@@ -33,7 +33,7 @@ def mock_daemon():
     t.start()
 
     # Wait for socket to appear (up to 10 seconds)
-    sock_path = Path.home() / ".cache" / "mcp-stata" / "sessions" / "integration_test.sock"
+    sock_path = Path.home() / ".cache" / "stata-agent" / "sessions" / "integration_test.sock"
     for _ in range(100):
         if sock_path.exists():
             break
@@ -53,7 +53,7 @@ def mock_daemon():
     except Exception:
         pass
     sock_path.unlink(missing_ok=True)
-    meta_path = Path.home() / ".cache" / "mcp-stata" / "sessions" / "integration_test.json"
+    meta_path = Path.home() / ".cache" / "stata-agent" / "sessions" / "integration_test.json"
     meta_path.unlink(missing_ok=True)
 
 

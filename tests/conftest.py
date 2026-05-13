@@ -50,7 +50,7 @@ def mock_log_dir():
 
 @pytest.fixture
 def mock_cache_dir():
-    """Provide a temporary cache directory (simulates ~/.cache/mcp-stata)."""
+    """Provide a temporary cache directory (simulates ~/.cache/stata-agent)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         cache = Path(tmpdir)
         (cache / "sessions").mkdir(parents=True, exist_ok=True)

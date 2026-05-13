@@ -10,7 +10,7 @@ from typing import Any, Optional
 from pathlib import Path
 
 
-SESSION_DIR = Path.home() / ".cache" / "mcp-stata" / "sessions"
+SESSION_DIR = Path.home() / ".cache" / "stata-agent" / "sessions"
 
 
 def _get_socket_path(session: str = "default") -> Path:

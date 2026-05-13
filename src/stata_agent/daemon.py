@@ -27,8 +27,8 @@ from stata_agent.error_extractor import ErrorExtractor
 
 logger = logging.getLogger("stata.daemon")
 
-SESSION_DIR = Path.home() / ".cache" / "mcp-stata" / "sessions"
-LOG_DIR = Path.home() / ".cache" / "mcp-stata" / "logs"
+SESSION_DIR = Path.home() / ".cache" / "stata-agent" / "sessions"
+LOG_DIR = Path.home() / ".cache" / "stata-agent" / "logs"
 
 
 class JsonProtocol(asyncio.Protocol):

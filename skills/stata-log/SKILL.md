@@ -17,5 +17,5 @@ Read and search Stata session logs.
 
 ## Notes
 
-- Logs are plain text (not SMCL), in `~/.cache/mcp-stata/logs/`.
+- Logs are plain text (not SMCL), in `~/.cache/stata-agent/logs/`.
 - Backward scan of 6 MB log completes in < 5 ms.

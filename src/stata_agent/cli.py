@@ -31,8 +31,8 @@ from stata_agent.rpc_client import RpcClient, RpcError
 from stata_agent.statest.runner import run_tests, run_test, discover_tests
 from stata_agent.statest.models import TestSuiteSummary
 
-SESSION_DIR = Path.home() / ".cache" / "mcp-stata" / "sessions"
-LOG_DIR = Path.home() / ".cache" / "mcp-stata" / "logs"
+SESSION_DIR = Path.home() / ".cache" / "stata-agent" / "sessions"
+LOG_DIR = Path.home() / ".cache" / "stata-agent" / "logs"
 
 
 # ======================================================================
@@ -712,7 +712,7 @@ def _print_test_summary(summary, json_output: bool = False) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the full argument parser."""
-    parser = argparse.ArgumentParser(prog="stata", description="CLI-native Stata integration")
+    parser = argparse.ArgumentParser(prog="stata-agent", description="CLI-native Stata integration")
     parser.add_argument("--json", action="store_true", help="Output in JSON format")
     subparsers = parser.add_subparsers(dest="command")
 

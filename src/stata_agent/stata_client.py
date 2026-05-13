@@ -24,7 +24,7 @@ from stata_agent.log_manager import (
 )
 from stata_agent.models import RunResult, GraphDelta
 
-LOG_DIR_DEFAULT = Path.home() / ".cache" / "mcp-stata" / "logs"
+LOG_DIR_DEFAULT = Path.home() / ".cache" / "stata-agent" / "logs"
 
 
 class StataClient:
