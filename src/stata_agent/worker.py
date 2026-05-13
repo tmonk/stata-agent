@@ -59,7 +59,7 @@ def _worker_main(conn: Connection, session_name: str = "default") -> None:
     # Import pystata-related modules here so the daemon process
     # doesn't need them.
     try:
-        from sfi import Macro, Results, Data
+        from sfi import Macro, Data
         from stata_agent.stata_client import StataClient
 
         stata = StataClient()

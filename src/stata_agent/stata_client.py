@@ -49,7 +49,7 @@ class StataClient:
             return
 
         try:
-            from sfi import Macro, Results, Data  # noqa: F401
+            from sfi import Macro, Data  # noqa: F401
             self._sfi_available = True
         except ImportError:
             self._sfi_available = False
@@ -345,12 +345,24 @@ class StataClient:
     def get_results(self, result_class: str = "r") -> dict:
         """Retrieve stored results (r(), e(), s())."""
         self._ensure_initialised()
-        from sfi import Results
+        from sfi import Macro
         result_class = result_class.lower()
         if result_class not in ("r", "e", "s"):
             raise ValueError(f"Invalid result class: {result_class} (use r, e, or s)")
-        macros = Results.getMacro(result_class, "all")
-        return {"class": result_class, "stored_results": macros}
+        # Use Stata's return list to retrieve results, then read via Macro
+        cmd_map = {"r": "return list", "e": "ereturn list", "s": "sreturn list"}
+        self._stata_run(cmd_map[result_class], echo=False)
+        log_text = self._read_log_tail()
+        # Also try to read specific r-class macros via sfi
+        stored = {}
+        try:
+            for name in ("N", "mean", "sd", "min", "max", "sum", "Var", "level", "se", "t", "df_r", "F", "p", "ll", "ll_0", "chi2", "r2", "r2_a", "N_missing", "N_present", "N_total"):
+                val = Macro.getGlobal(f"{result_class}({name})")
+                if val is not None and val != "":
+                    stored[name] = val
+        except Exception:
+            pass
+        return {"class": result_class, "stored_results": stored, "log": log_text}
 
     # ------------------------------------------------------------------
     # Graphs
@@ -361,9 +373,9 @@ class StataClient:
         if not self._sfi_available:
             return set()
         try:
-            from sfi import Results
+            from sfi import Macro
             self._stata_run("quietly graph dir, memory", echo=False)
-            raw = Results.getMacro("r(list)")
+            raw = Macro.getGlobal("r(list)")
             if raw is not None and raw.strip() and raw.strip() != " ":
                 return set(raw.split())
             return set()
