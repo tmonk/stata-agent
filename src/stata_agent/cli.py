@@ -19,6 +19,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import subprocess
@@ -498,7 +499,18 @@ def cmd_lint(args: Any) -> int:
 
 def cmd_doctor(args: Any) -> int:
     """Check the stata-agent environment and report status."""
-    print("[stata] Checking environment...")
+    # If --json, use verify.py's doctor() for structured output
+    if getattr(args, "json", False):
+        try:
+            from scripts.install.verify import doctor as verify_doctor
+            result = verify_doctor()
+            print(json.dumps(result.to_dict(), indent=2))
+            return 1 if result.issues else 0
+        except ImportError:
+            print(json.dumps({"error": "verify module not available", "issues": ["verify.py not found"]}))
+            return 1
+
+    print("[stata-agent] Checking environment...")
     issues = []
 
     # Check Python version
@@ -539,10 +551,109 @@ def cmd_doctor(args: Any) -> int:
     except Exception:
         print(f"  Daemon: not running")
 
+    # Check update state
+    try:
+        from stata_agent.skills_installer import _get_state_dir
+        state_dir = _get_state_dir()
+        state_file = state_dir / "update_state.json"
+        if state_file.exists():
+            state = json.loads(state_file.read_text())
+            print(f"  Update state: {state.get('last_check_result', 'unknown')}")
+            if state.get("denylist_active"):
+                issues.append(("warning", f"Current version is denylisted. Upgrade required."))
+        else:
+            print(f"  Update state: not yet checked")
+    except Exception:
+        pass
+
     if issues:
         for severity, msg in issues:
             print(f"  [{severity}] {msg}")
         return 1
+    return 0
+
+
+def cmd_install_skills(args: Any) -> int:
+    """Register skills with detected AI agents."""
+    try:
+        from stata_agent.skills_installer import install_skills, uninstall_skills
+    except ImportError as e:
+        print(f"Error: skills_installer module not available: {e}", file=sys.stderr)
+        return 1
+
+    quiet = getattr(args, "quiet", False)
+    dry_run = getattr(args, "dry_run", False)
+    repair = getattr(args, "repair", False)
+    verbose = getattr(args, "verbose", False)
+
+    if getattr(args, "uninstall", False):
+        if not quiet:
+            print("[stata-agent] Uninstalling skills...")
+        results = uninstall_skills(dry_run=dry_run, verbose=verbose)
+    else:
+        if not quiet:
+            print("[stata-agent] Installing skills...")
+        agents_filter = None
+        if getattr(args, "agents", None):
+            agents_filter = [a.strip() for a in args.agents.split(",")]
+        results = install_skills(
+            dry_run=dry_run,
+            repair=repair,
+            verbose=verbose,
+            agents_filter=agents_filter,
+        )
+
+    for agent, msgs in results.items():
+        for msg in msgs:
+            if not quiet:
+                print(f"  {agent}: {msg}")
+
+    # Return non-zero if any failures
+    has_failures = any("Failed" in m for msgs in results.values() for m in msgs)
+    return 1 if has_failures else 0
+
+
+def cmd_upgrade(args: Any) -> int:
+    """Upgrade stata-agent to the latest version."""
+    try:
+        from stata_agent.skills_installer import check_and_upgrade, _fetch_latest_version, _parse_version
+        from stata_agent import __version__
+    except ImportError as e:
+        print(f"Error: upgrade module not available: {e}", file=sys.stderr)
+        return 1
+
+    quiet = getattr(args, "quiet", False)
+    force = getattr(args, "force", False)
+    to_version = getattr(args, "to_version", None)
+
+    if to_version:
+        # Install specific version (downgrade support)
+        if not quiet:
+            print(f"[stata-agent] Installing version {to_version}...")
+        result = subprocess.run(
+            ["uv", "tool", "install", "stata-agent", "==" + to_version, "--force"],
+            check=not quiet,
+            capture_output=quiet,
+            timeout=120,
+        )
+        if result.returncode == 0:
+            if not quiet:
+                print(f"[stata-agent] Downgraded to {to_version}")
+            # Re-register skills
+            subprocess.run(
+                [sys.argv[0], "install-skills", "--quiet"],
+                capture_output=True, timeout=30,
+            )
+            return 0
+        else:
+            if not quiet:
+                print(f"[stata-agent] Failed to install {to_version}")
+            return 1
+
+    if not quiet:
+        print(f"[stata-agent] Checking for updates (current: {__version__})...")
+
+    check_and_upgrade(force=force)
     return 0
 
 
@@ -835,9 +946,27 @@ def build_parser() -> argparse.ArgumentParser:
 
     # ---- doctor ----
     doctor = subparsers.add_parser("doctor", help="Check environment")
+    doctor.add_argument("--json", action="store_true", help="Output in JSON format")
+    doctor.add_argument("--no-upgrade", action="store_true", help="Skip auto-upgrade check")
 
     # ---- discover ----
     discover = subparsers.add_parser("discover", help="Discover Stata installations")
+
+    # ---- install-skills ----
+    install_skills = subparsers.add_parser("install-skills", help="Register skills with detected AI agents")
+    install_skills.add_argument("--dry-run", action="store_true", help="Print actions without executing")
+    install_skills.add_argument("--verbose", action="store_true", help="Show detailed output")
+    install_skills.add_argument("--uninstall", action="store_true", help="Remove skills links/copies")
+    install_skills.add_argument("--quiet", action="store_true", help="Suppress output")
+    install_skills.add_argument("--repair", action="store_true", help="Fix stale links and missing hooks")
+    install_skills.add_argument("--agents", help="Comma-separated list of agents to target (e.g. claude,codex)")
+
+    # ---- upgrade ----
+    upgrade = subparsers.add_parser("upgrade", help="Upgrade stata-agent to latest version")
+    upgrade.add_argument("--force", action="store_true", help="Remove timeout and force upgrade check")
+    upgrade.add_argument("--quiet", action="store_true", help="Suppress output")
+    upgrade.add_argument("--verbose", action="store_true", help="Show detailed output")
+    upgrade.add_argument("--to", dest="to_version", help="Install a specific version (for downgrade)")
 
     # ---- task ----
     task = subparsers.add_parser("task", help="Background task management")
@@ -886,6 +1015,27 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     """Entry point for the stata CLI."""
+    # Auto-update check (skip for upgrade and install-skills to prevent recursion)
+    if argv is None:
+        argv = sys.argv[1:]
+    # Determine subcommand without full parse
+    subcommand = None
+    for i, a in enumerate(argv):
+        if not a.startswith("-") and a in (
+            "daemon", "run", "break", "inspect", "graph", "results",
+            "help", "log", "lint", "doctor", "discover", "task", "test",
+            "install-skills", "upgrade",
+        ):
+            subcommand = a
+            break
+    # Run auto-upgrade for all commands except upgrade, install-skills, and --help/--version
+    if subcommand not in ("upgrade", "install-skills"):
+        try:
+            from stata_agent.skills_installer import check_and_upgrade
+            check_and_upgrade(force=False)
+        except Exception:
+            pass  # Never crash on auto-update failure
+
     parser = build_parser()
     try:
         args = parser.parse_args(argv)
@@ -981,7 +1131,6 @@ def main(argv: list[str] | None = None) -> int:
             print("Usage: stata task status|cancel|list [options]")
             return 1
 
-
     elif args.command == "test":
         if args.test_cmd == "discover":
             return cmd_test_discover(args)
@@ -992,6 +1141,13 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print("Usage: stata test discover|run|run-all [options]")
             return 1
+
+    elif args.command == "install-skills":
+        return cmd_install_skills(args)
+
+    elif args.command == "upgrade":
+        return cmd_upgrade(args)
+
     else:
         parser.print_help()
         return 1
