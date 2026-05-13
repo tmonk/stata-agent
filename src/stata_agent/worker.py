@@ -24,8 +24,9 @@ def _worker_main(conn: Connection, session_name: str = "default") -> None:
     command loop reading from the pipe.
     """
     # Try to configure pystata via stata_setup before importing SFI.
-    # stata_setup (on PyPI) adds the Stata .app bundle's utilities/
-    # path to sys.path so that pystata can be imported.
+    # Walk up from the binary path to find the root that contains
+    # `utilities/` (where the proprietary pystata module lives).
+    # This handles both standard installs and .app bundles.
     try:
         import stata_setup
         from stata_agent.discovery import find_stata_candidates
@@ -33,12 +34,25 @@ def _worker_main(conn: Connection, session_name: str = "default") -> None:
         candidates = find_stata_candidates()
         if candidates:
             stata_path, edition = candidates[0]
-            # Derive the Stata sysdir from the binary path
-            # e.g. /Applications/StataNow/StataSE.app/Contents/MacOS/StataSE
-            #   -> /Applications/StataNow/StataSE.app/Contents
-            sysdir = os.path.dirname(os.path.dirname(stata_path))
-            edition_lower = edition.lower()
-            stata_setup.config(sysdir, edition_lower, splash=False)
+            # Walk up to find the root dir with utilities/
+            bin_dir = os.path.dirname(stata_path)
+            root = bin_dir
+            for _ in range(5):  # max 5 levels up
+                if os.path.isdir(os.path.join(root, "utilities")):
+                    break
+                parent = os.path.dirname(root)
+                if parent == root:
+                    root = None
+                    break
+                root = parent
+            if root:
+                edition_lower = edition.lower()
+                # Insert utilities/ at head of sys.path first so PyPI
+                # pystata doesn't shadow the proprietary one
+                utils_path = os.path.join(root, "utilities")
+                if os.path.isdir(utils_path) and utils_path not in sys.path:
+                    sys.path.insert(0, utils_path)
+                stata_setup.config(root, edition_lower, splash=False)
     except Exception:
         pass  # Fall through — will report pystata not available
 
