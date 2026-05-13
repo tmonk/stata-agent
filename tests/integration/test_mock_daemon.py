@@ -20,7 +20,7 @@ from stata_agent.rpc_client import RpcClient, RpcError
 @pytest.fixture(scope="module")
 def mock_daemon():
     """Start a mock daemon and return an RPC client."""
-    os.environ["MCP_STATA_MOCK"] = "1"
+    os.environ["STATA_AGENT_MOCK"] = "1"
 
     from stata_agent.mock_backend import MockDaemon
 

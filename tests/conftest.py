@@ -9,19 +9,35 @@ from pathlib import Path
 
 import pytest
 
-# Always set mock mode for tests by default
-os.environ.setdefault("MCP_STATA_MOCK", "1")
+# Note: STATA_AGENT_MOCK can be set externally to force mock mode.
+# By default, we try to detect a live Stata installation first.
 
 
 def _is_stata_available() -> bool:
-    """Quick check if Stata is available on this system."""
-    if os.environ.get("MCP_STATA_MOCK") == "1":
+    """Quick check if Stata is available on this system.
+
+    Returns False if STATA_AGENT_MOCK=1 is explicitly set in the environment,
+    allowing callers to force mock mode. Otherwise checks for a real Stata
+    binary on common macOS paths.
+    """
+    if os.environ.get("STATA_AGENT_MOCK") == "1":
         return False
-    # Check common Stata binary locations
+    # Check common Stata binary locations (se, mp, ic, and plain stata)
     for path in [
         "/usr/local/bin/stata-se",
+        "/usr/local/bin/stata-mp",
+        "/usr/local/bin/stata-ic",
         "/usr/local/bin/stata",
+        "/Applications/StataNow/stata-se",
+        "/Applications/StataNow/stata-mp",
+        "/Applications/StataNow/stata-ic",
+        "/Applications/StataNow/stata",
         "/Applications/StataNow/StataSE.app/Contents/MacOS/StataSE",
+        "/Applications/StataNow/StataMP.app/Contents/MacOS/StataMP",
+        "/Applications/StataNow/StataIC.app/Contents/MacOS/StataIC",
+        "/Applications/Stata/StataSE.app/Contents/MacOS/StataSE",
+        "/Applications/Stata/StataMP.app/Contents/MacOS/StataMP",
+        "/Applications/Stata/StataIC.app/Contents/MacOS/StataIC",
     ]:
         if os.path.exists(path) and os.access(path, os.X_OK):
             return True
@@ -34,7 +50,7 @@ def pytest_collection_modifyitems(config, items):
         return  # Don't skip — real Stata is available
 
     skip_marker = pytest.mark.skip(
-        reason="requires Stata license — set MCP_STATA_MOCK=0 and install Stata"
+        reason="requires Stata license — run with Stata installed and without STATA_AGENT_MOCK=1"
     )
     for item in items:
         if "requires_stata" in item.keywords:
