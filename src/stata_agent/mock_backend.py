@@ -10,12 +10,45 @@ import asyncio
 import json
 import os
 import re
+import string
 import time
 import uuid
 from pathlib import Path
 from typing import Any, Optional
 
 RESPONSES_DIR = Path(__file__).resolve().parent.parent.parent / "features" / "09-mock-test-mode" / "responses"
+
+
+# ---------------------------------------------------------------------------
+# Path sanitisation — keep output under a safe temp directory
+# ---------------------------------------------------------------------------
+
+_MOCK_TMP_DIR = Path("/tmp/stata-agent-mock")
+_SAFE_CHARS = frozenset(string.ascii_letters + string.digits + "-_.")
+
+
+def _sanitise_out_path(raw: str, session: str) -> str:
+    """Return a safe absolute path under /tmp for mock export output.
+
+    If *raw* is a non-empty string, its filename component is sanitised
+    (non-alphanumeric characters except ``-``, ``_``, ``.`` are replaced
+    with ``_``) and the result is placed under ``/tmp/stata-agent-mock/``.
+    If *raw* is empty, a fallback path using the session name is returned.
+    """
+    safe_dir = _MOCK_TMP_DIR / "exports"
+    safe_dir.mkdir(parents=True, exist_ok=True)
+
+    stem = raw.strip()
+    if not stem:
+        stem = f"mock_{session}_export.csv"
+
+    # Keep only the filename component (basename) and sanitise it
+    stem = Path(stem).name
+    safe_name = "".join(ch if ch in _SAFE_CHARS else "_" for ch in stem)
+    if not safe_name:
+        safe_name = f"mock_{session}_export.csv"
+
+    return str(safe_dir / safe_name)
 
 
 def _load_canned_responses() -> dict[str, dict[str, Any]]:
@@ -382,8 +415,10 @@ class MockDaemon:
             return {"text": "", "rows": [], "total_obs": 0, "returned": 0}
 
         elif method == "inspect_get":
-            # Create a mock export file so the client can read it
-            out_path = args.get("out_path", f"/tmp/mock_{session}_export.csv")
+            # Create a mock export file so the client can read it.
+            # Sanitise the path to prevent writing to CWD with garbage names.
+            raw_out_path = args.get("out_path", f"/tmp/mock_{session}_export.csv")
+            out_path = _sanitise_out_path(raw_out_path, session)
             try:
                 Path(out_path).parent.mkdir(parents=True, exist_ok=True)
                 Path(out_path).write_text("x,s\n1,hello\n.a,\n.z,\n")
