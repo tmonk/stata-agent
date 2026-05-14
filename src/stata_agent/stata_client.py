@@ -515,11 +515,16 @@ class StataClient:
 
         return output.strip(), rc
 
-    def _read_log_tail(self) -> str:
-        """Read recent log content for error extraction."""
+    def _read_log_tail(self, lines: int = 200, max_bytes: int = 131072) -> str:
+        """Read tail of the Stata log file efficiently.
+
+        Uses the progressive backward-seek optimised ``tail_file()``
+        instead of reading the entire file (which can be large when
+        many commands have accumulated).
+        """
         try:
             if self._log_path and Path(self._log_path).exists():
-                return Path(self._log_path).read_text(encoding="utf-8", errors="replace")
+                return tail_file(self._log_path, lines=lines, bytes=max_bytes)
         except Exception:
             pass
         return ""
