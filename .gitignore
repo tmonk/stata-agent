@@ -2,9 +2,15 @@
 __pycache__/
 .pytest_cache/
 *.pyc
-False.log
-test_pystata_log.log
+
+# Stata log files
+*.log
+*.smcl
 stata.log
 
 # Random artifact files from fuzz testing
 benchmarks/history/
+
+# Bool-as-path bug artifacts (historical)
+True.log
+False.log
