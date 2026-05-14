@@ -279,6 +279,8 @@ class StataClient:
         if out_path is None:
             fd, out_path = tempfile.mkstemp(suffix=f".{format}")
             os.close(fd)
+        # Ensure absolute path so Stata doesn't write to CWD
+        out_path = os.path.abspath(out_path)
         obs_clause = self._get_obs_range_clause(obs_range) if obs_range else ""
 
         if format == "csv":
@@ -410,6 +412,7 @@ class StataClient:
         self._ensure_initialised()
         if name:
             self._stata_run(f'graph display "{name}"', echo=False)
+        out_path = os.path.abspath(out_path)
         self._stata_run(f'graph export "{out_path}", replace as({fmt})', echo=False)
         size = os.path.getsize(out_path)
         return {"file_path": out_path, "size_bytes": size}
