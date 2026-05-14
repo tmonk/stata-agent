@@ -50,8 +50,7 @@ def _sanitise_out_path(raw: str, session: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Canned responses — inline data formerly loaded from
-# features/09-mock-test-mode/responses/*.txt
+# Canned responses — inline data (no filesystem dependency)
 # ---------------------------------------------------------------------------
 
 def _make_canned(output: str) -> dict[str, Any]:
