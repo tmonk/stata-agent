@@ -16,6 +16,10 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+# Reusable temp path for multiline do-file execution (per-process).
+# Created once at module load, avoids NamedTemporaryFile overhead per call.
+_STATA_TEMP_DO = os.path.join(tempfile.gettempdir(), "_stata_agent_temp.do")
+
 from stata_agent.error_extractor import ErrorExtractor
 from stata_agent.log_manager import (
     LogRotator,
@@ -122,8 +126,13 @@ class StataClient:
         max_output_tokens: int = 1000,
         strict: bool = False,
         pre_allocated_log: str | None = None,
+        track_graphs: bool = False,
     ) -> RunResult:
         """Execute Stata code and return structured result.
+
+        By default skips graph tracking (which saves ~127μs per call by
+        avoiding two ``graph dir, memory`` snapshots). Set ``track_graphs``
+        to True to detect newly created/dropped graphs.
 
         Uses StataSO_Execute() directly to get the return code from Stata's
         C API — no log-file parsing needed for error detection.
@@ -133,17 +142,16 @@ class StataClient:
         if pre_allocated_log:
             self._log_path = Path(pre_allocated_log)
 
-        # Snapshot graphs before
-        before = self.snapshot_graphs()
+        if track_graphs:
+            before = self.snapshot_graphs()
 
-        # Execute code directly (capture wrapper removed — StataSO_Execute
-        # returns the rc directly for the outermost command). If code has
-        # multiple lines and one fails, Stata stops at the first error.
         stdout, rc = self._stata_run(code, echo=echo)
 
-        # Snapshot graphs after
-        after = self.snapshot_graphs()
-        delta = compute_graph_delta(before, after)
+        if track_graphs:
+            after = self.snapshot_graphs()
+            delta = compute_graph_delta(before, after)
+        else:
+            delta = {"created": [], "dropped": [], "current": []}
 
         ok = rc == 0
 
@@ -167,18 +175,27 @@ class StataClient:
         path: str,
         echo: bool = True,
         strict: bool = False,
+        track_graphs: bool = False,
     ) -> RunResult:
-        """Execute a do-file and return structured result."""
+        """Execute a do-file and return structured result.
+
+        By default skips graph tracking. Set ``track_graphs=True`` to
+        detect newly created/dropped graphs.
+        """
         self._ensure_initialised()
         self._rotate_if_needed()
 
-        before = self.snapshot_graphs()
+        if track_graphs:
+            before = self.snapshot_graphs()
 
-        # Run do-file directly — StataSO_Execute returns the rc
         cmd = f'do "{path}"'
         stdout, rc = self._stata_run(cmd, echo=echo)
-        after = self.snapshot_graphs()
-        delta = compute_graph_delta(before, after)
+
+        if track_graphs:
+            after = self.snapshot_graphs()
+            delta = compute_graph_delta(before, after)
+        else:
+            delta = {"created": [], "dropped": [], "current": []}
 
         ok = rc == 0
 
@@ -369,12 +386,16 @@ class StataClient:
     # ------------------------------------------------------------------
 
     def snapshot_graphs(self) -> set[str]:
-        """Return the set of graph names currently in memory."""
+        """Return the set of graph names currently in memory.
+
+        Uses _stata_run_internal for the Stata command (no output capture
+        overhead), since we read the result via SFI Macro, not from output.
+        """
         if not self._sfi_available:
             return set()
         try:
             from sfi import Macro
-            self._stata_run("quietly graph dir, memory", echo=False)
+            self._stata_run_internal("quietly graph dir, memory")
             raw = Macro.getGlobal("r(list)")
             if raw is not None and raw.strip() and raw.strip() != " ":
                 return set(raw.split())
@@ -427,96 +448,70 @@ class StataClient:
         if not self._initialised:
             raise RuntimeError("StataClient not initialised. Call init() first.")
 
+    def _stata_run_internal(self, code: str) -> int:
+        """Execute code in Stata with NO output capture.
+
+        Fast path for internal commands (graph dir, log operations, etc.)
+        where we only need the return code and/or read results via SFI.
+        Skips all output capture overhead: no StringIO, no RedirectOutput,
+        no print-loop.
+
+        Returns:
+            return_code
+        """
+        from pystata import config
+        execute = config.stlib.StataSO_Execute
+        rc = execute(config.get_encode_str(code), False)
+        _ = config.get_output()  # drain buffer
+        return rc
+
     def _stata_run(self, code: str, echo: bool = False) -> tuple[str, int]:
-        """Execute code in Stata and capture output + return code directly.
+        """Execute code in Stata and return (output, rc).
 
-        Gets the rc from Stata's C API via StataSO_Execute() instead of
-        parsing the log file. Temporarily switches streamout to off so we
-        can use the non-streaming output path with RedirectOutput.
+        Optimised path — direct StataSO_Execute + get_output, no StringIO,
+        no RedirectOutput context, no print-loop overhead.
 
-        For multi-line code, writes a temporary do-file and uses
-        ``include`` — ``StataSO_Execute`` propagates the do-file's exit
-        code through the include command's return value. For single-line
-        code, executes directly.
+        For single-line code, executes directly via StataSO_Execute(code, echo).
+        For multi-line code, writes a reused temp do-file and uses ``include``
+        — StataSO_Execute propagates the do-file's exit code correctly.
 
         Returns:
             (output_text, return_code)
         """
-        import io
-        import os
-        import tempfile
-        from pathlib import Path
         from pystata import config
-        from pystata.core import stout
 
-        # Split into lines to determine approach
+        # Cache locals for speed
+        execute = config.stlib.StataSO_Execute
+        encode = config.get_encode_str
+        get_output = config.get_output
+
         lines = code.splitlines()
-        # Remove blank/whitespace-only lines for detection
         non_blank = [ln for ln in lines if ln.strip()]
 
-        capture = io.StringIO()
-        original_stoutputf = config.stoutputf
-        config.stoutputf = capture
+        if len(non_blank) == 1:
+            # Single line — execute directly (fast path)
+            config.stlib.StataSO_ClearOutputBuffer()
+            rc = execute(encode(code), echo)
+            output = get_output() or ""
+            return output.strip(), rc
 
-        # Switch to non-streaming mode for clean output capture
-        original_streamout = config.stconfig.get('streamout', 'on')
-        config.stconfig['streamout'] = 'off'
+        # Multi-line code — write to reused temp file and include
+        do_path = _STATA_TEMP_DO
+        with open(do_path, "w", encoding="utf-8") as f:
+            f.write(code)
+
+        # Showcommand management for echo=False
+        if not echo:
+            execute(encode("set showcommand off"), False)
 
         config.stlib.StataSO_ClearOutputBuffer()
-        rc = 0
+        rc = execute(encode(f'include "{do_path}"'), False)
+        output = get_output() or ""
 
-        def _flush_output():
-            """Flush remaining output from Stata's buffer to our StringIO."""
-            from pystata.stata import _print_no_streaming_output
-            output = config.get_output()
-            while len(output) != 0:
-                _print_no_streaming_output(output, False)
-                output = config.get_output()
+        if not echo:
+            execute(encode("set showcommand on"), False)
 
-        try:
-            if len(non_blank) == 1:
-                # Single line — execute directly via StataSO_Execute
-                with stout.RedirectOutput(stout.StataDisplay(), stout.StataError()):
-                    rc = config.stlib.StataSO_Execute(
-                        config.get_encode_str(code), echo
-                    )
-                _flush_output()
-            else:
-                # Multi-line code — write temp do-file and include.
-                # StataSO_Execute propagates the do-file's error code back
-                # through the include command's return value.
-                with tempfile.NamedTemporaryFile(
-                    mode="w", suffix=".do", delete=False, encoding="utf-8"
-                ) as f:
-                    f.write(code)
-                    tmp_path = f.name
-
-                try:
-                    with stout.RedirectOutput(
-                        stout.StataDisplay(), stout.StataError(),
-                        echo if echo else None,
-                    ):
-                        rc = config.stlib.StataSO_Execute(
-                            config.get_encode_str(f'include "{tmp_path}"'),
-                            False,
-                        )
-                    _flush_output()
-
-                    # rc from StataSO_Execute on include already propagates
-                    # the do-file exit code correctly
-                finally:
-                    try:
-                        Path(tmp_path).unlink(missing_ok=True)
-                    except Exception:
-                        pass
-        except Exception as exc:
-            # If anything goes wrong, preserve whatever output we have
-            pass
-        finally:
-            config.stoutputf = original_stoutputf
-            config.stconfig['streamout'] = original_streamout
-
-        return capture.getvalue().strip(), rc
+        return output.strip(), rc
 
     def _read_log_tail(self) -> str:
         """Read recent log content for error extraction."""
