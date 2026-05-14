@@ -22,7 +22,7 @@ def _is_stata_available() -> bool:
     """
     if os.environ.get("STATA_AGENT_MOCK") == "1":
         return False
-    # Check common Stata binary locations (se, mp, ic, and plain stata)
+    # Check common Stata binary locations (macOS, both uppercase and lowercase variants)
     for path in [
         "/usr/local/bin/stata-se",
         "/usr/local/bin/stata-mp",
@@ -33,11 +33,17 @@ def _is_stata_available() -> bool:
         "/Applications/StataNow/stata-ic",
         "/Applications/StataNow/stata",
         "/Applications/StataNow/StataSE.app/Contents/MacOS/StataSE",
+        "/Applications/StataNow/StataSE.app/Contents/MacOS/stata-se",
         "/Applications/StataNow/StataMP.app/Contents/MacOS/StataMP",
+        "/Applications/StataNow/StataMP.app/Contents/MacOS/stata-mp",
         "/Applications/StataNow/StataIC.app/Contents/MacOS/StataIC",
+        "/Applications/StataNow/StataIC.app/Contents/MacOS/stata-ic",
         "/Applications/Stata/StataSE.app/Contents/MacOS/StataSE",
+        "/Applications/Stata/StataSE.app/Contents/MacOS/stata-se",
         "/Applications/Stata/StataMP.app/Contents/MacOS/StataMP",
+        "/Applications/Stata/StataMP.app/Contents/MacOS/stata-mp",
         "/Applications/Stata/StataIC.app/Contents/MacOS/StataIC",
+        "/Applications/Stata/StataIC.app/Contents/MacOS/stata-ic",
     ]:
         if os.path.exists(path) and os.access(path, os.X_OK):
             return True
