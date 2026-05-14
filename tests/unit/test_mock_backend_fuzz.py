@@ -617,8 +617,9 @@ class TestFuzzMockDaemonDispatch:
                 "lines": random.randint(-1, 100_000),
                 "name": _random_string(100),
                 "format": random.choice(["pdf", "png", "svg", "", None, "exe"]),
-                "out_path": _random_string(200),
-                "outdir": _random_string(200),
+                # Always use a /tmp/ prefix so output goes to a safe directory
+                "out_path": f"/tmp/{_random_string(100)}",
+                "outdir": f"/tmp/{_random_string(100)}",
                 "offset": random.randint(-1, 1_000_000),
                 "timeout": random.randint(-1, 1_000_000),
                 "task_id": _random_string(100),
