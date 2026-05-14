@@ -28,10 +28,13 @@ projects. Its purpose is to:
 - [Optimization 5: Zero-cost graph tracking default](#optimization-5-zero-cost-graph-tracking-default)
 - [Optimization 6: ExecuteResult type for clean graph-name passthrough](#optimization-6-executeresult-type-for-clean-graph-name-passthrough)
 - [Optimization 7: Pre-populated graph cache](#optimization-7-pre-populated-graph-cache)
+- [Optimization 8: Bundle single-line + track_graphs + echo=False](#optimization-8-bundle-single-line--track_graphs--echofalse-via-temp-file)
+- [Optimization 9: Cache showcommand state](#optimization-9-cache-showcommand-state)
+- [Optimization 10: Pre-encode strings and early newline detection](#optimization-10-pre-encode-fixed-strings-and-early-newline-detection)
 - [Rejected Approaches](#rejected-approaches)
   - [A. Cython extension to read Stata internals](#a-cython-extension-to-read-stata-internals)
   - [B. Direct ctypes into libstata internal symbols](#b-direct-ctypes-into-libstata-internal-symbols)
-  - [C. Combined single StataSO_Execute (avoid bundled approach)](#c-combined-single-stataso_execute-avoid-bundled-approach)
+  - [C. Combined single StataSO_Execute (separate round-trip for single-line + echo=True)](#c-combined-single-stataso_execute-separate-round-trip-for-single-line--echotrue)
   - [D. Remove showcommand toggling](#d-remove-showcommand-toggling)
   - [E. char-defined graph hooks / Stata-level incremental tracking](#e-char-defined-graph-hooks--stata-level-incremental-tracking)
   - [F. Semicolon-delimited commands to avoid temp-file I/O](#f-semicolon-delimited-commands-to-avoid-temp-file-io)
@@ -403,30 +406,43 @@ local symbols by name. The internal graph handlers are `N_FUNC` (not
 or parse the Mach-O symbol table directly. Neither is portable or stable
 across Stata versions.
 
-### C. Combined single StataSO_Execute (avoid bundled approach)
+### C. Combined single StataSO_Execute (separate round-trip for single-line + echo=True)
 
-**Type**: Tested → Rejected ✗  
-**Benchmarked**: 2026-05-14
+**Type**: Partially adopted ✓ (echo=False), Rejected ✗ (echo=True)  
+**Tested**: 2026-05-14 (round 1), 2026-05-14 14:00 UTC (round 2)
 
 ### What
 
-For `track_graphs=True` + single-line code: instead of using a separate
-`StataSO_Execute("quietly graph dir, memory")` call, try to combine the
-user code and graph dir into a single call somehow (e.g., newlines in the
-C string).
+For `track_graphs=True` + single-line code: instead of a separate
+`StataSO_Execute("quietly graph dir, memory")` call, route through a
+temp-file to bundle both user code and graph dir in one do-file.
 
-### Why rejected
+### First assessment (round 1 — wrong)
 
-`StataSO_Execute` accepts only a single command — no newlines, no
-semicolons. There is no supported way to make it execute two commands.
-If we artificially inject `\n` and pass it, Stata silently truncates at
-the newline, losing the graph query.
+The do-file path adds file I/O (~21 µs) + showcommand toggling (~16 µs),
+totalling ~37 µs overhead. The separate `graph dir` call costs ~88 µs.
+But bundling was thought to be unhelpful because the **direct** path
+(without graph dir) is ~12 µs, and adding ~37 µs for the do-file was
+more than the Python dispatch overhead (~4 µs).
 
-The only way to execute two commands is through a do-file — which is
-exactly what the multiline path does. For a single-line command, going
-through the do-file path adds file I/O (~21 µs) and `showcommand`
-toggling (~16 µs), resulting in **worse** performance than the separate
-StataSO call.
+This reasoning was correct about the do-file overhead but **wrong**
+about the overall cost: the graph dir execution (~88 µs) runs regardless.
+The comparison should be:
+- **Separate**: 12 µs (user) + 88 µs (graph dir) = **100 µs**
+- **Bundled**: 37 µs (do-file) + graph dir bundled inside = **~50 µs**
+
+The bundling saves ~50 µs by eliminating the second StataSO_Execute
+Python → C dispatch and its ctypes marshalling.
+
+### Current status
+
+| Scenario | Strategy | Cost |
+|---|---|---|
+| Single-line + track_graphs + echo=False | **Bundle via temp-file** | **~50 µs** |
+| Single-line + track_graphs + echo=True | Separate graph dir call | ~104 µs |
+
+For `echo=True`, bundling remains rejected because the `include`
+command line appears in output, changing the visible text.
 
 ### D. Remove showcommand toggling
 
