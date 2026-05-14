@@ -7,3 +7,4 @@ test_pystata_log.log
 stata.log
 
 # Random artifact files from fuzz testing
+benchmarks/history/
