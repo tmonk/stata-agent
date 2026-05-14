@@ -52,31 +52,52 @@ class StataClient:
             return
 
         try:
+            # If pystata hasn't been configured yet (config.stlib is None),
+            # try to auto-discover and initialise it via stata_setup.
+            from pystata import config as _pystata_config
+
+            if _pystata_config.stlib is None:
+                import stata_setup
+                from stata_agent.discovery import find_stata_path
+
+                # find_stata_path returns the binary path; we need the root
+                # directory that contains utilities/ for stata_setup.config().
+                bin_path, edition = find_stata_path()
+                bin_dir = os.path.dirname(os.path.abspath(bin_path))
+                root = bin_dir
+                for _ in range(5):
+                    if os.path.isdir(os.path.join(root, "utilities")):
+                        break
+                    parent = os.path.dirname(root)
+                    if parent == root:
+                        root = None
+                        break
+                    root = parent
+                if root is None:
+                    raise ValueError(
+                        f"Cannot find Stata root directory (with utilities/) "
+                        f"from binary path: {bin_path}"
+                    )
+                stata_setup.config(root, edition, splash=False)
+
             from sfi import Macro, Data  # noqa: F401
             self._sfi_available = True
-        except ImportError:
+        except Exception as exc:
             self._sfi_available = False
             raise ImportError(
                 "pystata/SFI not available. Run this worker inside Stata's "
-                "Python or install pystata via stata_setup."
+                "Python or install pystata via stata_setup. Error: " + str(exc)
             )
-
-        # Initialise Stata engine
-        try:
-            import pystata
-            pystata.config.init("none")
-        except Exception:
-            pass
 
         # Open a text-mode log
         self._log_path = self._rotator.current_path
 
         self._stata_run(
-            f'cap log close _mcp_session',
+            f'cap log close _agent_session',
             echo=False,
         )
         self._stata_run(
-            f'log using "{self._log_path}", replace text name(_mcp_session)',
+            f'log using "{self._log_path}", replace text name(_agent_session)',
             echo=False,
         )
 
@@ -86,7 +107,7 @@ class StataClient:
         """Clean up Stata resources."""
         if self._initialised:
             try:
-                self._stata_run('cap log close _mcp_session', echo=False)
+                self._stata_run('cap log close _agent_session', echo=False)
             except Exception:
                 pass
 
@@ -102,7 +123,11 @@ class StataClient:
         strict: bool = False,
         pre_allocated_log: str | None = None,
     ) -> RunResult:
-        """Execute Stata code and return structured result."""
+        """Execute Stata code and return structured result.
+
+        Uses StataSO_Execute() directly to get the return code from Stata's
+        C API — no log-file parsing needed for error detection.
+        """
         self._ensure_initialised()
         self._rotate_if_needed()
         if pre_allocated_log:
@@ -111,32 +136,15 @@ class StataClient:
         # Snapshot graphs before
         before = self.snapshot_graphs()
 
-        if strict:
-            cmd = code
-        else:
-            # Wrap in capture noisily with structured markers
-            escaped = code.replace('"', '""')
-            cmd = (
-                f'capture noisily {{\n'
-                f'    {code}\n'
-                f'}}\n'
-                f'if _rc != 0 {{\n'
-                f'    display as error "[MCP-ERROR] rc=" _rc\n'
-                f'    display as error "[MCP-MSG] `:display _rc[message]\\\'\n'
-                f'}}'
-            )
-
-        stdout = self._stata_run(cmd, echo=echo)
+        # Execute code directly (capture wrapper removed — StataSO_Execute
+        # returns the rc directly for the outermost command). If code has
+        # multiple lines and one fails, Stata stops at the first error.
+        stdout, rc = self._stata_run(code, echo=echo)
 
         # Snapshot graphs after
         after = self.snapshot_graphs()
         delta = compute_graph_delta(before, after)
 
-        # Read log and check for errors
-        log_text = self._read_log_tail()
-        error = self._extractor.extract(log_text)
-
-        rc = error.rc if error else 0
         ok = rc == 0
 
         if ok:
@@ -166,26 +174,12 @@ class StataClient:
 
         before = self.snapshot_graphs()
 
-        if strict:
-            cmd = f'do "{path}"'
-        else:
-            cmd = (
-                f'capture noisily {{\n'
-                f'    do "{path}"\n'
-                f'}}\n'
-                f'if _rc != 0 {{\n'
-                f'    display as error "[MCP-ERROR] rc=" _rc\n'
-                f'    display as error "[MCP-MSG] `:display _rc[message]\\\'\n'
-                f'}}'
-            )
-
-        stdout = self._stata_run(cmd, echo=echo)
+        # Run do-file directly — StataSO_Execute returns the rc
+        cmd = f'do "{path}"'
+        stdout, rc = self._stata_run(cmd, echo=echo)
         after = self.snapshot_graphs()
         delta = compute_graph_delta(before, after)
 
-        log_text = self._read_log_tail()
-        error = self._extractor.extract(log_text)
-        rc = error.rc if error else 0
         ok = rc == 0
 
         if ok:
@@ -266,14 +260,18 @@ class StataClient:
         if out_path is None:
             fd, out_path = tempfile.mkstemp(suffix=f".{format}")
             os.close(fd)
-        vl = varlist or "_all"
         obs_clause = self._get_obs_range_clause(obs_range) if obs_range else ""
 
         if format == "csv":
-            self._stata_run(f'export delimited using "{out_path}", replace {vl}{obs_clause}', echo=False)
+            # `export delimited` syntax: [varlist] using filename [, options]
+            # Variables go before `using`, not after options.
+            vl_part = varlist if varlist else ""
+            cmd = f'export delimited {vl_part} using "{out_path}", replace{obs_clause}'
+            self._stata_run(cmd.strip(), echo=False)
         elif format == "json":
             self._stata_run(f'jsonio set output "{out_path}", replace', echo=False)
-            self._stata_run(f"jsonio export {vl}{obs_clause}", echo=False)
+            vl_part = varlist if varlist else "_all"
+            self._stata_run(f"jsonio export {vl_part}{obs_clause}", echo=False)
         elif format == "arrow":
             try:
                 import pyarrow as pa
@@ -405,8 +403,12 @@ class StataClient:
 
     def get_log_errors(self, context_lines: int = 20) -> dict:
         """Extract errors from the current log."""
-        log_text = self._read_log_tail()
-        error = self._extractor.extract(log_text)
+        # Use tail-only error extraction
+        log_path_str = str(self._log_path) if self._log_path else ""
+        if log_path_str:
+            error = self._extractor.extract_from_tail(log_path_str)
+        else:
+            error = None
         if error is None:
             return {"rc": None, "message": None, "context": None, "source": None}
         return {
@@ -425,33 +427,96 @@ class StataClient:
         if not self._initialised:
             raise RuntimeError("StataClient not initialised. Call init() first.")
 
-    def _stata_run(self, code: str, echo: bool = False) -> str:
-        """Execute code in Stata and capture output.
+    def _stata_run(self, code: str, echo: bool = False) -> tuple[str, int]:
+        """Execute code in Stata and capture output + return code directly.
 
-        pystata.stata.run() consumes the C-level output buffer internally and
-        prints results via _print_no_streaming_output() which writes to
-        config.stoutputf (the original sys.stdout at pystata import time).
-        We temporarily replace config.stoutputf with a StringIO to capture it.
+        Gets the rc from Stata's C API via StataSO_Execute() instead of
+        parsing the log file. Temporarily switches streamout to off so we
+        can use the non-streaming output path with RedirectOutput.
+
+        For multi-line code, writes a temporary do-file and uses
+        ``include`` — ``StataSO_Execute`` propagates the do-file's exit
+        code through the include command's return value. For single-line
+        code, executes directly.
+
+        Returns:
+            (output_text, return_code)
         """
         import io
-        from sfi import Data  # noqa: F401 — ensure SFI is loaded
-        import pystata
+        import os
+        import tempfile
+        from pathlib import Path
         from pystata import config
+        from pystata.core import stout
+
+        # Split into lines to determine approach
+        lines = code.splitlines()
+        # Remove blank/whitespace-only lines for detection
+        non_blank = [ln for ln in lines if ln.strip()]
 
         capture = io.StringIO()
         original_stoutputf = config.stoutputf
         config.stoutputf = capture
 
-        try:
-            pystata.stata.run(code, quietly=not echo)
-        except SystemError:
-            # Stata errors produce output before the exception is raised.
-            # The output buffer is consumed by _print_no_streaming_output
-            # inside stata.run() and written to our capture stream.
-            pass
+        # Switch to non-streaming mode for clean output capture
+        original_streamout = config.stconfig.get('streamout', 'on')
+        config.stconfig['streamout'] = 'off'
 
-        config.stoutputf = original_stoutputf
-        return capture.getvalue()
+        config.stlib.StataSO_ClearOutputBuffer()
+        rc = 0
+
+        def _flush_output():
+            """Flush remaining output from Stata's buffer to our StringIO."""
+            from pystata.stata import _print_no_streaming_output
+            output = config.get_output()
+            while len(output) != 0:
+                _print_no_streaming_output(output, False)
+                output = config.get_output()
+
+        try:
+            if len(non_blank) == 1:
+                # Single line — execute directly via StataSO_Execute
+                with stout.RedirectOutput(stout.StataDisplay(), stout.StataError()):
+                    rc = config.stlib.StataSO_Execute(
+                        config.get_encode_str(code), echo
+                    )
+                _flush_output()
+            else:
+                # Multi-line code — write temp do-file and include.
+                # StataSO_Execute propagates the do-file's error code back
+                # through the include command's return value.
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".do", delete=False, encoding="utf-8"
+                ) as f:
+                    f.write(code)
+                    tmp_path = f.name
+
+                try:
+                    with stout.RedirectOutput(
+                        stout.StataDisplay(), stout.StataError(),
+                        echo if echo else None,
+                    ):
+                        rc = config.stlib.StataSO_Execute(
+                            config.get_encode_str(f'include "{tmp_path}"'),
+                            False,
+                        )
+                    _flush_output()
+
+                    # rc from StataSO_Execute on include already propagates
+                    # the do-file exit code correctly
+                finally:
+                    try:
+                        Path(tmp_path).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+        except Exception as exc:
+            # If anything goes wrong, preserve whatever output we have
+            pass
+        finally:
+            config.stoutputf = original_stoutputf
+            config.stconfig['streamout'] = original_streamout
+
+        return capture.getvalue().strip(), rc
 
     def _read_log_tail(self) -> str:
         """Read recent log content for error extraction."""
@@ -468,12 +533,12 @@ class StataClient:
         new_path = self._rotator.rotate_if_needed()
         if new_path != old_path:
             self._stata_run(
-                f'cap log close _mcp_session',
+                f'cap log close _agent_session',
                 echo=False,
             )
             self._log_path = new_path
             self._stata_run(
-                f'log using "{self._log_path}", replace text name(_mcp_session)',
+                f'log using "{self._log_path}", replace text name(_agent_session)',
                 echo=False,
             )
 
