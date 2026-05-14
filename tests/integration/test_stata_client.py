@@ -14,7 +14,7 @@ import pytest
 
 @pytest.fixture(scope="module")
 def stata_client():
-    """Create a StataClient, initialise pystata, and clean up."""
+    """Create a StataClient, initialise pystata-x, and clean up."""
     import sys
     import os
 
@@ -25,8 +25,8 @@ def stata_client():
     root = os.environ.get("STATA_PATH", "/Applications/StataNow")
     edition = "se"
 
-    import stata_setup
-    stata_setup.config(root, edition, splash=False)
+    from pystata_x.stata_setup import config as px_setup_config
+    px_setup_config(root, edition, splash=False)
 
     from stata_agent.stata_client import StataClient
 
@@ -81,7 +81,7 @@ def test_stata_run_multi_line(stata_client):
 @pytest.mark.requires_stata
 def test_stata_run_rc_accuracy(stata_client):
     """Verify rc from StataSO_Execute matches _rc after capture noisily."""
-    from pystata import config
+    from pystata_x import _config as _px_config
 
     # Run a command that fails, wrapped in capture noisily
     # The StataSO_Execute rc will be 0 (capture succeeds), but _rc holds error

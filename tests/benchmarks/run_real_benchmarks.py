@@ -140,7 +140,7 @@ def measure_cold_init() -> float:
     script = '''
 import sys, time
 sys.path.insert(0, "/Applications/StataNow/utilities")
-import stata_setup
+from pystata_x.stata_setup import config as px_setup_config
 from stata_agent.discovery import find_stata_path
 path, edition = find_stata_path()
 edition_lower = edition.lower()
@@ -154,7 +154,7 @@ for _ in range(5):
         root = None
         break
     root = parent
-stata_setup.config(root, edition_lower, splash=False)
+px_setup_config(root, edition_lower, splash=False)
 from stata_agent.stata_client import StataClient
 client = StataClient(session_name="cold_init_measure")
 client.init()
@@ -175,7 +175,7 @@ client.close()
 def get_client():
     """Initialise Stata and return a ready-to-use StataClient."""
     sys.path.insert(0, "/Applications/StataNow/utilities")
-    import stata_setup
+    from pystata_x.stata_setup import config as px_setup_config
 
     from stata_agent.discovery import find_stata_path
 
@@ -193,7 +193,7 @@ def get_client():
             break
         root = parent
 
-    stata_setup.config(root, edition_lower, splash=False)
+    px_setup_config(root, edition_lower, splash=False)
 
     from stata_agent.stata_client import StataClient
 

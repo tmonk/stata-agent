@@ -65,11 +65,11 @@ def pytest_benchmark_update_json(config, benchmarks, output_json):
 def stata_client():
     """Create a real StataClient connected to a licensed Stata instance.
 
-    Initialises pystata via ``stata_setup`` (auto-discovery). Requires a
+    Initialises pystata-x (auto-discovery). Requires a
     licensed Stata installation (macOS / Linux / Windows). Skipped in CI
     or when ``STATA_AGENT_MOCK=1``.
     """
-    import stata_setup
+    from pystata_x.stata_setup import config as px_setup_config
     from stata_agent.discovery import find_stata_path
 
     path, edition = find_stata_path()
@@ -88,7 +88,7 @@ def stata_client():
     if root is None:
         pytest.skip(f"Cannot find Stata root (utilities/) from binary: {path}")
 
-    stata_setup.config(root, edition_lower, splash=False)
+    px_setup_config(root, edition_lower, splash=False)
 
     from stata_agent.stata_client import StataClient
 

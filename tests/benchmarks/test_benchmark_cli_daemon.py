@@ -27,7 +27,7 @@ class TestDaemonLifecycleBenchmarks:
         """Start a real Stata daemon + worker for benchmarking.
 
         This starts the actual production daemon, which spawns a worker
-        subprocess that initialises Stata via pystata.
+        subprocess that initialises Stata via pystata-x.
         """
         import subprocess
         cache_dir = Path.home() / ".cache" / "stata-agent" / "sessions"
@@ -55,7 +55,7 @@ class TestDaemonLifecycleBenchmarks:
             proc.wait(timeout=5)
             pytest.fail("Daemon did not start within 30s")
 
-        time.sleep(2)  # extra settle time for worker init (pystata ~2s)
+        time.sleep(2)  # extra settle time for worker init (pystata-x ~2s)
 
         from stata_agent.rpc_client import RpcClient
         client = RpcClient(session=session)
