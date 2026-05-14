@@ -49,6 +49,9 @@ class StataClient:
         self._extractor = ErrorExtractor()
         self._initialised = False
         self._sfi_available = False
+        # Cached graph set — avoids the "before" snapshot in run()/run_file().
+        # Updated after every execution that tracks graphs.
+        self._cached_graphs: set[str] = set()
 
     def init(self) -> None:
         """Initialise pystata. Call this once at worker startup."""
@@ -126,13 +129,14 @@ class StataClient:
         max_output_tokens: int = 1000,
         strict: bool = False,
         pre_allocated_log: str | None = None,
-        track_graphs: bool = False,
+        track_graphs: bool = True,
     ) -> RunResult:
         """Execute Stata code and return structured result.
 
-        By default skips graph tracking (which saves ~127μs per call by
-        avoiding two ``graph dir, memory`` snapshots). Set ``track_graphs``
-        to True to detect newly created/dropped graphs.
+        Tracks graph state changes by using a cached pre-execution snapshot
+        and a single post-execution snapshot (avoids the second ``graph dir``
+        call). Set ``track_graphs=False`` to skip graph tracking entirely
+        for maximum throughput.
 
         Uses StataSO_Execute() directly to get the return code from Stata's
         C API — no log-file parsing needed for error detection.
@@ -142,13 +146,12 @@ class StataClient:
         if pre_allocated_log:
             self._log_path = Path(pre_allocated_log)
 
-        if track_graphs:
-            before = self.snapshot_graphs()
-
         stdout, rc = self._stata_run(code, echo=echo)
 
         if track_graphs:
+            before = self._cached_graphs
             after = self.snapshot_graphs()
+            self._cached_graphs = after
             delta = compute_graph_delta(before, after)
         else:
             delta = {"created": [], "dropped": [], "current": []}
@@ -185,14 +188,13 @@ class StataClient:
         self._ensure_initialised()
         self._rotate_if_needed()
 
-        if track_graphs:
-            before = self.snapshot_graphs()
-
         cmd = f'do "{path}"'
         stdout, rc = self._stata_run(cmd, echo=echo)
 
         if track_graphs:
+            before = self._cached_graphs
             after = self.snapshot_graphs()
+            self._cached_graphs = after
             delta = compute_graph_delta(before, after)
         else:
             delta = {"created": [], "dropped": [], "current": []}
@@ -523,15 +525,22 @@ class StataClient:
         return ""
 
     def _rotate_if_needed(self) -> None:
-        """Rotate log if the current one exceeds size/command limits."""
+        """Rotate log if the current one exceeds size/command limits.
+
+        NOTE: ``self._rotator.rotate_if_needed()`` returns a ``bool``
+        (``True`` if rotation occurred).  We must read the new path from
+        ``self._rotator.current_path``, not from the return value — the old
+        code used the bool as a path, which made Stata open ``True.log`` or
+        ``False.log`` in the CWD (the garbage files!).
+        """
         old_path = self._log_path
-        new_path = self._rotator.rotate_if_needed()
-        if new_path != old_path:
+        rotated = self._rotator.rotate_if_needed()
+        if rotated:
             self._stata_run(
                 f'cap log close _agent_session',
                 echo=False,
             )
-            self._log_path = new_path
+            self._log_path = self._rotator.current_path
             self._stata_run(
                 f'log using "{self._log_path}", replace text name(_agent_session)',
                 echo=False,
