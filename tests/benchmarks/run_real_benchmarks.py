@@ -341,10 +341,27 @@ def bench_graph_operations(client, entries: list):
     client.run("histogram weight, name(g2)", echo=True)
     client._stata_run("graph display g1", echo=False)
 
-    # Our code: parse Stata log for graph names
+    # Our code: snapshot_graphs() (standalone graph dir query)
     def graph_list():
         client.snapshot_graphs()
     entries.append(entry(g, "graph_list", measure(graph_list)))
+
+    # Our code: run() with track_graphs=False (zero-cost default)
+    def run_no_track():
+        client.run("display 1+1", echo=False, track_graphs=False)
+    entries.append(entry(g, "run_track_graphs_false", measure(run_no_track)))
+
+    # Our code: run() with track_graphs=True (bundled query)
+    def run_track():
+        client.run("display 1+1", echo=False, track_graphs=True,
+                    max_output_tokens=1000)
+    entries.append(entry(g, "run_track_graphs_true", measure(run_track)))
+
+    # Our code: execute() with track_graphs=True (bundled)
+    from pystata_x._core import execute
+    def exec_track():
+        execute("display 1+1", echo=False, capture=True, track_graphs=True)
+    entries.append(entry(g, "execute_track_graphs_true", measure(exec_track)))
 
     # Our code: _stata_run("graph export ...") + file-size check
     tmp_fd, out = tempfile.mkstemp(suffix=".png")
