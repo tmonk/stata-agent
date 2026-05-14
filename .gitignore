@@ -2,3 +2,18 @@
 __pycache__/
 .pytest_cache/
 *.pyc
+
+# Stata log files
+*.log
+*.smcl
+stata.log
+
+# Random artifact files from fuzz testing
+benchmarks/history/
+
+# Bool-as-path bug artifacts (historical)
+True.log
+False.log
+
+# pi agent workspace — not part of the project
+.pi/

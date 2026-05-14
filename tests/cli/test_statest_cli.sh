@@ -19,7 +19,7 @@ cat > "$TMPDIR/tests/test_beta.do" << 'DOEOF'
 st_assert_scalar 2, expected(2)
 DOEOF
 
-export MCP_STATA_MOCK=1
+export STATA_AGENT_MOCK=1
 
 echo "=== test discover ==="
 OUTPUT=$(stata test discover "$TMPDIR/tests" 2>&1)

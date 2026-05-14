@@ -1,4 +1,4 @@
-"""StataWorker process — runs Stata via pystata in a subprocess.
+"""StataWorker process — runs Stata via pystata-x in a subprocess.
 
 Communicates with the daemon over a multiprocessing.Pipe. Each worker
 owns one Stata process (stateful, persistent across commands).
@@ -20,20 +20,54 @@ from stata_agent.models import RunResult, TaskStatus
 def _worker_main(conn: Connection, session_name: str = "default") -> None:
     """Worker process entry point.
 
-    Initializes Stata via pystata (or fallback), then enters a
+    Initializes Stata via pystata-x (or fallback), then enters a
     command loop reading from the pipe.
     """
-    # Import pystata-related modules here so the daemon process
+    # Try to configure Stata via pystata_x.stata_setup before importing SFI.
+    # The root-finding (utilities/ parent) is handled inside pystata-x's
+    # own config.init(), but we still need to ensure the path to the
+    # proprietary Stata modules (utilities/) is on sys.path so that
+    # ``from sfi import ...`` works.
+    from pystata_x.stata_setup import config as fast_setup_config
+    from stata_agent.discovery import find_stata_candidates
+
+    candidates = find_stata_candidates()
+    if candidates:
+        stata_path, edition = candidates[0]
+        # Walk up to find the root dir with utilities/
+        bin_dir = os.path.dirname(stata_path)
+        root = bin_dir
+        for _ in range(5):  # max 5 levels up
+            if os.path.isdir(os.path.join(root, "utilities")):
+                break
+            parent = os.path.dirname(root)
+            if parent == root:
+                root = None
+                break
+            root = parent
+        if root:
+            edition_lower = edition.lower()
+            # Insert utilities/ at head of sys.path first so the
+            # proprietary Stata modules (e.g. sfi, pystata) are importable
+            utils_path = os.path.join(root, "utilities")
+            if os.path.isdir(utils_path) and utils_path not in sys.path:
+                sys.path.insert(0, utils_path)
+            try:
+                fast_setup_config(root, edition_lower, splash=False)
+            except Exception:
+                pass  # Fall through — will report Stata/SFI not available
+
+    # Import SFI-related modules here so the daemon process
     # doesn't need them.
     try:
-        from sfi import Macro, Results, Data
+        from sfi import Macro, Data
         from stata_agent.stata_client import StataClient
 
         stata = StataClient()
         stata.init()
-        _has_pystata = True
+        _has_sfi = True
     except ImportError:
-        _has_pystata = False
+        _has_sfi = False
         stata = None
         # We'll report the error to the daemon
 
@@ -57,12 +91,12 @@ def _worker_main(conn: Connection, session_name: str = "default") -> None:
                 conn.send({"event": "pong", "pid": os.getpid()})
                 continue
 
-            if not _has_pystata:
+            if not _has_sfi:
                 conn.send({
                     "event": "error",
                     "id": msg.get("id", ""),
-                    "error": "pystata not available in this worker process",
-                    "error_code": "PYSTATA_MISSING",
+                    "error": "Stata/SFI not available in this worker process",
+                    "error_code": "SFI_MISSING",
                 })
                 continue
 
@@ -89,7 +123,7 @@ def _worker_main(conn: Connection, session_name: str = "default") -> None:
             continue
 
     # Cleanup
-    if _has_pystata and stata:
+    if _has_sfi and stata:
         try:
             stata.close()
         except Exception:
@@ -105,6 +139,9 @@ def _dispatch(stata: Any, method: str, args: dict) -> dict:
             echo=args.get("echo", True),
             max_output_tokens=args.get("max_output_tokens", 1000),
             strict=args.get("strict", False),
+            pre_allocated_log=args.get("pre_allocated_log"),
+            # track_graphs passed from RPC; defaults to False in StataClient.run()
+            track_graphs=args.get("track_graphs", False),
         )
         return _result_to_dict(result)
 
@@ -113,6 +150,8 @@ def _dispatch(stata: Any, method: str, args: dict) -> dict:
             args.get("path", ""),
             echo=args.get("echo", True),
             strict=args.get("strict", False),
+            # track_graphs passed from RPC; defaults to False in StataClient.run_file()
+            track_graphs=args.get("track_graphs", False),
         )
         return _result_to_dict(result)
 
@@ -140,6 +179,7 @@ def _dispatch(stata: Any, method: str, args: dict) -> dict:
             format=args.get("format", "csv"),
             out_path=args.get("out_path"),
             varlist=args.get("varlist"),
+            obs_range=args.get("obs_range"),
         )
 
     elif method == "results":

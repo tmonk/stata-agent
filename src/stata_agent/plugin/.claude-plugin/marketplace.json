@@ -1,0 +1,14 @@
+{
+  "name": "stata-agent-marketplace",
+  "owner": { "name": "Thomas Monk" },
+  "description": "Local marketplace for the stata-agent plugin.",
+  "plugins": [
+    {
+      "name": "stata-agent",
+      "source": "./plugin",
+      "description": "Stata CLI tools and skills for AI agents.",
+      "version": "{{VERSION}}",
+      "category": "Development"
+    }
+  ]
+}

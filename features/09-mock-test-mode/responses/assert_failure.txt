@@ -1,4 +1,0 @@
-. capture assert 1==0
-
-. display "Return code after assert: " _rc
-Return code after assert: 9

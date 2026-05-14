@@ -27,8 +27,8 @@ from stata_agent.error_extractor import ErrorExtractor
 
 logger = logging.getLogger("stata.daemon")
 
-SESSION_DIR = Path.home() / ".cache" / "mcp-stata" / "sessions"
-LOG_DIR = Path.home() / ".cache" / "mcp-stata" / "logs"
+SESSION_DIR = Path.home() / ".cache" / "stata-agent" / "sessions"
+LOG_DIR = Path.home() / ".cache" / "stata-agent" / "logs"
 
 
 class JsonProtocol(asyncio.Protocol):
@@ -144,6 +144,7 @@ class StataDaemon:
                         break
 
             asyncio.create_task(_idle_check())
+            asyncio.create_task(self._cleanup_temps())
         except NotImplementedError:
             # Windows or non-main-thread — signal handlers not supported
             pass
@@ -186,18 +187,36 @@ class StataDaemon:
             send_args = dict(args)
             if args.get("background"):
                 task_id = uuid.uuid4().hex
+                from stata_agent.log_manager import LogRotator
+                log_path = LogRotator(session_name).next_path()
+                self._background_tasks[task_id] = {
+                    "status": "running", "task_id": task_id,
+                    "log_path": str(log_path), "created_at": time.time(),
+                }
+                send_args["pre_allocated_log"] = str(log_path)
                 asyncio.create_task(self._background_run(handle, task_id, send_args))
-                return {"task_id": task_id, "status": "running"}
+                return {"task_id": task_id, "status": "running", "log_path": str(log_path)}
             else:
                 return self._call_worker(handle, "run", send_args)
 
         elif method == "run_file":
             return self._call_worker(handle, "run_file", args)
 
+        elif method == "graph_export":
+            out_path = args.get("out_path")
+            if not out_path:
+                import tempfile
+                fd, out_path = tempfile.mkstemp(suffix=f".{args.get('format', 'pdf')}")
+                os.close(fd)
+                args["out_path"] = out_path
+                # Register with 5-minute TTL
+                self._temp_files[out_path] = time.time() + 300
+            return self._call_worker(handle, "graph_export", args)
+
         elif method in (
             "inspect_describe", "inspect_summary", "inspect_codebook",
             "inspect_list", "inspect_get", "results",
-            "graph_list", "graph_export",
+            "graph_list",
             "log_tail", "log_errors",
         ):
             return self._call_worker(handle, method, args)
@@ -238,6 +257,15 @@ class StataDaemon:
                 for tid, info in self._background_tasks.items()
             ]}
 
+        elif method == "log_read_at_offset":
+            path = args.get("log_path", "")
+            offset = args.get("offset", 0)
+            max_bytes = args.get("max_bytes", 32768)
+            if not path:
+                return {"text": "", "next_offset": 0}
+            result = paginated_read(path, offset, max_bytes)
+            return {"text": result.get("data", ""), "next_offset": result.get("next_offset", 0)}
+
         else:
             raise ValueError(f"Unknown method: {method}")
 
@@ -264,14 +292,16 @@ class StataDaemon:
             raise TimeoutError(f"Worker did not respond within {timeout}s")
 
     _background_tasks: dict[str, dict] = {}
+    _temp_files: dict[str, float] = {}
 
     async def _background_run(self, handle, task_id: str, args: dict) -> None:
         """Run a command in the background."""
-        self._background_tasks[task_id] = {
-            "status": "running",
-            "task_id": task_id,
-            "created_at": time.time(),
-        }
+        if task_id not in self._background_tasks:
+            self._background_tasks[task_id] = {
+                "status": "running",
+                "task_id": task_id,
+                "created_at": time.time(),
+            }
         try:
             result = self._call_worker(handle, "run", args)
             result["status"] = "completed"
@@ -284,6 +314,14 @@ class StataDaemon:
                 "error": str(e),
             }
 
+
+    async def _cleanup_temps(self):
+        while not self._shutdown_event.is_set():
+            await asyncio.sleep(60)
+            now = time.time()
+            for p in [p for p, t in self._temp_files.items() if t < now]:
+                Path(p).unlink(missing_ok=True)
+                del self._temp_files[p]
 
 def main() -> int:
     """Entry point for the daemon subprocess."""

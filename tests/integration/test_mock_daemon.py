@@ -20,7 +20,7 @@ from stata_agent.rpc_client import RpcClient, RpcError
 @pytest.fixture(scope="module")
 def mock_daemon():
     """Start a mock daemon and return an RPC client."""
-    os.environ["MCP_STATA_MOCK"] = "1"
+    os.environ["STATA_AGENT_MOCK"] = "1"
 
     from stata_agent.mock_backend import MockDaemon
 
@@ -33,7 +33,7 @@ def mock_daemon():
     t.start()
 
     # Wait for socket to appear (up to 10 seconds)
-    sock_path = Path.home() / ".cache" / "mcp-stata" / "sessions" / "integration_test.sock"
+    sock_path = Path.home() / ".cache" / "stata-agent" / "sessions" / "integration_test.sock"
     for _ in range(100):
         if sock_path.exists():
             break
@@ -53,14 +53,14 @@ def mock_daemon():
     except Exception:
         pass
     sock_path.unlink(missing_ok=True)
-    meta_path = Path.home() / ".cache" / "mcp-stata" / "sessions" / "integration_test.json"
+    meta_path = Path.home() / ".cache" / "stata-agent" / "sessions" / "integration_test.json"
     meta_path.unlink(missing_ok=True)
 
 
 class TestHealth:
     def test_daemon_health(self, mock_daemon: RpcClient):
         result = mock_daemon.call("health", {})
-        assert result.get("status") == "running"
+        assert result.get("status") == "ok"
         assert result.get("pid", 0) > 0
         assert result.get("session_name") == "integration_test"
 

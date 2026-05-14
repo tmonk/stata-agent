@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>stata-agent · telemetry</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0b0d12;
+    --surface:  #13151e;
+    --surface2: #1a1d28;
+    --border:   #252836;
+    --text:     #e2e8f0;
+    --muted:    #5b637a;
+    --dim:      #8892a4;
+    --indigo:   #6366f1;
+    --emerald:  #10b981;
+    --amber:    #f59e0b;
+    --rose:     #f43f5e;
+    --sky:      #38bdf8;
+    --purple:   #a855f7;
+    --teal:     #14b8a6;
+    --radius: 10px;
+    --gap:    16px;
+  }
+
+  html, body { height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px; line-height: 1.5; }
+  .app { max-width: 1380px; margin: 0 auto; padding: 24px var(--gap); }
+
+  header { display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px; flex-wrap: wrap; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--indigo);
+    box-shadow: 0 0 8px var(--indigo); }
+  .brand h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.2px; }
+  .brand span { color: var(--muted); font-size: 13px; margin-left: 4px; }
+  .refresh-btn { display: flex; align-items: center; gap: 6px; padding: 5px 14px;
+    border-radius: 6px; border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); font-size: 13px; cursor: pointer; transition: all .15s; }
+  .refresh-btn:hover { border-color: var(--indigo); }
+  .refresh-btn svg { width: 13px; height: 13px; }
+  .refresh-btn.spinning svg { animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .time-bar {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+    padding: 10px 14px; margin-bottom: 12px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  }
+  .time-bar-section { display: flex; align-items: center; gap: 6px; }
+  .time-bar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+  .time-label { font-size: 11px; font-weight: 600; letter-spacing: .5px;
+    text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .dt-input { padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); font-size: 12px;
+    font-family: inherit; cursor: pointer; color-scheme: dark; }
+  .dt-input:focus { outline: none; border-color: var(--indigo); }
+  .live-badge { font-size: 11px; color: var(--emerald); padding: 3px 7px;
+    border-radius: 4px; background: rgba(16,185,129,.12); white-space: nowrap; }
+
+  .seg-btn { padding: 4px 10px; border-radius: 5px; border: 1px solid var(--border);
+    background: none; color: var(--dim); font-size: 12px; cursor: pointer; transition: all .12s; white-space: nowrap; }
+  .seg-btn:hover { border-color: var(--indigo); color: var(--text); }
+  .seg-btn.active { background: var(--indigo); border-color: var(--indigo); color: #fff; font-weight: 600; }
+
+  .card { background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; }
+  .card-title { font-size: 11px; font-weight: 600; letter-spacing: .6px;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--gap); margin-bottom: var(--gap); }
+  .kpi { padding: 18px 20px; }
+  .kpi-label { font-size: 11px; font-weight: 600; letter-spacing: .6px;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .kpi-value { font-size: 32px; font-weight: 700; letter-spacing: -1px; line-height: 1; }
+  .kpi-sub { font-size: 12px; color: var(--dim); margin-top: 6px; }
+  .kpi-good   { color: var(--emerald); }
+  .kpi-warn   { color: var(--amber); }
+  .kpi-bad    { color: var(--rose); }
+  .kpi-blue   { color: var(--sky); }
+  .kpi-indigo { color: var(--indigo); }
+
+  .charts-row { display: grid; gap: var(--gap); margin-bottom: var(--gap); }
+  .charts-row-2 { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .charts-row-2 { grid-template-columns: 1fr; } }
+  .chart-wrap canvas { max-height: 240px; }
+  .chart-wrap.tall canvas { max-height: 300px; }
+
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 600;
+    letter-spacing: .5px; text-transform: uppercase; color: var(--muted);
+    border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); z-index: 1; }
+  tbody tr { transition: background .1s; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--dim); }
+  .filterable { cursor: pointer; transition: color .1s; }
+  .filterable:hover { color: var(--indigo) !important; text-decoration: underline; text-decoration-style: dotted; }
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px;
+    border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-success { background: rgba(16,185,129,.15); color: var(--emerald); }
+  .badge-start   { background: rgba(99,102,241,.15);  color: var(--indigo); }
+  .badge-failure { background: rgba(244,63,94,.15);   color: var(--rose); }
+  .badge-upgrade { background: rgba(245,158,11,.15);  color: var(--amber); }
+  .badge-other   { background: rgba(91,99,122,.15);   color: var(--dim); }
+
+  .skeleton { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:.6} 50%{opacity:.2} }
+  .skel-text { height: 32px; width: 80px; background: var(--border); border-radius: 4px; display: inline-block; }
+  .skel-sub  { height: 12px; width: 100px; background: var(--border); border-radius: 3px; display: inline-block; margin-top: 8px; }
+
+  .log-btn { padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: none; color: var(--dim); font-size: 11px; cursor: pointer;
+    transition: all .12s; white-space: nowrap; }
+  .log-btn:hover { border-color: var(--indigo); color: var(--indigo); }
+
+  .heat-cell { text-align: center; padding: 8px 10px; font-size: 12px; border-radius: 4px; }
+  .heat-cell-0 { background: transparent; color: var(--muted); }
+  .heat-cell-1 { background: rgba(99,102,241,.1); color: var(--indigo); }
+  .heat-cell-2 { background: rgba(99,102,241,.2); color: var(--indigo); }
+  .heat-cell-3 { background: rgba(244,63,94,.15); color: var(--rose); }
+  .heat-cell-4 { background: rgba(244,63,94,.3); color: var(--rose); font-weight: 600; }
+
+  /* log modal */
+  .log-modal-overlay { position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,.7); padding: 32px 20px; display: flex; align-items: flex-start; }
+  .log-modal-box { width: 100%; max-width: 960px; margin: 0 auto; height: calc(100vh - 64px);
+    display: flex; flex-direction: column;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: 0 24px 80px #000a; }
+  .log-modal-header { display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .log-modal-title  { font-size: 13px; font-weight: 600; }
+  .log-modal-meta   { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .log-modal-close  { padding: 5px 14px; border-radius: 6px; border: 1px solid var(--border);
+    background: none; color: var(--dim); font-size: 13px; cursor: pointer; transition: all .15s; }
+  .log-modal-close:hover { border-color: var(--rose); color: var(--rose); }
+  .log-modal-body   { flex: 1; overflow: auto; padding: 16px 20px; }
+  .log-pre { margin: 0; font-family: "SF Mono", ui-monospace, monospace; font-size: 12px;
+    line-height: 1.65; color: var(--dim); white-space: pre-wrap; word-break: break-all; }
+  .log-pre .log-line-err { color: var(--rose); }
+
+  #status-bar { font-size: 12px; color: var(--muted); margin-top: 20px;
+    display: flex; align-items: center; justify-content: space-between; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--emerald);
+    display: inline-block; margin-right: 6px; }
+  .dot.error { background: var(--rose); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <h1>stata-agent <span>telemetry</span></h1>
+    </div>
+    <button class="refresh-btn" id="refresh-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M1 4v6h6M23 20v-6h-6"/>
+        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+      </svg>
+      Refresh
+    </button>
+  </header>
+
+  <div class="time-bar">
+    <div class="time-bar-section"><span class="time-label">From</span><input class="dt-input" type="datetime-local" id="dt-from"></div>
+    <div class="time-bar-section"><span class="time-label">To</span><input class="dt-input" type="datetime-local" id="dt-to"><span class="live-badge" id="live-badge">● live</span></div>
+    <div class="time-bar-sep"></div>
+    <div class="time-bar-section" id="preset-btns">
+      <span class="time-label">Last</span>
+      <button class="seg-btn" data-hours="24">24h</button>
+      <button class="seg-btn active" data-hours="168">7d</button>
+      <button class="seg-btn" data-hours="720">30d</button>
+      <button class="seg-btn" data-hours="2160">90d</button>
+    </div>
+    <div class="time-bar-sep"></div>
+    <div class="time-bar-section" id="interval-btns">
+      <span class="time-label">Bucket</span>
+      <button class="seg-btn" data-n="1" data-unit="HOUR">1h</button>
+      <button class="seg-btn" data-n="6" data-unit="HOUR">6h</button>
+      <button class="seg-btn" data-n="12" data-unit="HOUR">12h</button>
+      <button class="seg-btn active" data-n="1" data-unit="DAY">1d</button>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="card kpi" id="kpi-installs">
+      <div class="kpi-label">Total Installs (7d)</div>
+      <div class="kpi-value skeleton"><span class="skel-text"></span></div>
+      <div class="kpi-sub skeleton"><span class="skel-sub"></span></div>
+    </div>
+    <div class="card kpi" id="kpi-success-rate">
+      <div class="kpi-label">Success Rate</div>
+      <div class="kpi-value skeleton"><span class="skel-text"></span></div>
+      <div class="kpi-sub skeleton"><span class="skel-sub"></span></div>
+    </div>
+    <div class="card kpi" id="kpi-upgrade-rate">
+      <div class="kpi-label">Upgrade Rate</div>
+      <div class="kpi-value skeleton"><span class="skel-text"></span></div>
+      <div class="kpi-sub skeleton"><span class="skel-sub"></span></div>
+    </div>
+    <div class="card kpi" id="kpi-unique-users">
+      <div class="kpi-label">Unique Users</div>
+      <div class="kpi-value skeleton"><span class="skel-text"></span></div>
+      <div class="kpi-sub skeleton"><span class="skel-sub"></span></div>
+    </div>
+    <div class="card kpi" id="kpi-failures">
+      <div class="kpi-label">Failures (7d)</div>
+      <div class="kpi-value skeleton"><span class="skel-text"></span></div>
+      <div class="kpi-sub skeleton"><span class="skel-sub"></span></div>
+    </div>
+  </div>
+
+  <!-- Time series: installs + upgrades over time -->
+  <div class="card" style="margin-bottom: var(--gap);">
+    <div class="card-title">Installs &amp; Upgrades over time</div>
+    <div class="chart-wrap tall"><canvas id="chart-timeseries"></canvas></div>
+  </div>
+
+  <!-- Source + OS breakdown -->
+  <div class="charts-row charts-row-2">
+    <div class="card">
+      <div class="card-title">Install Source</div>
+      <div class="chart-wrap"><canvas id="chart-source"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">OS Breakdown</div>
+      <div class="chart-wrap"><canvas id="chart-os"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Failure heat map -->
+  <div class="card" style="margin-bottom: var(--gap);" id="heatmap-card">
+    <div class="card-title">Failure Heat Map — stage × error_code</div>
+    <div class="table-scroll">
+      <table id="heatmap-table">
+        <thead id="heatmap-thead"><tr><th>Loading…</th></tr></thead>
+        <tbody id="heatmap-tbody"><tr><td style="color:var(--muted)">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Recent failures -->
+  <div class="card">
+    <div class="card-title">Recent Failures (last 20)</div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Time</th><th>Stage</th><th>Error</th><th>OS</th><th>Source</th><th>Version</th><th>Log</th></tr>
+        </thead>
+        <tbody id="failures-tbody">
+          <tr><td colspan="7" style="color:var(--muted);padding:20px 12px;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Log modal -->
+  <div class="log-modal-overlay" id="log-modal" style="display:none" onclick="if(event.target===this)closeLog()">
+    <div class="log-modal-box">
+      <div class="log-modal-header">
+        <div>
+          <div class="log-modal-title" id="log-modal-title">Install log</div>
+          <div class="log-modal-meta" id="log-modal-meta"></div>
+        </div>
+        <button class="log-modal-close" onclick="closeLog()">Close</button>
+      </div>
+      <div class="log-modal-body"><pre class="log-pre" id="log-modal-content"></pre></div>
+    </div>
+  </div>
+
+  <div id="status-bar">
+    <span><span class="dot" id="status-dot"></span><span id="status-text">Loading…</span></span>
+    <span id="last-updated"></span>
+  </div>
+</div>
+
+<script>
+// ── constants ─────────────────────────────────────────────────────────────────
+const DATASET = 'stata_agent_installs';
+const PALETTE = ['#6366f1','#10b981','#f59e0b','#38bdf8','#f43f5e','#a855f7','#14b8a6','#fb923c','#e879f9','#84cc16'];
+
+// Analytics Engine blob mapping for stata-agent (blobN = 1-indexed, matching JS blob[N-1])
+const F = {
+  event:     'blob1',  // blob[0]: install_start|install_success|install_failure|upgrade_*|uninstall_*
+  action:    'blob2',  // blob[1]: install|upgrade|uninstall
+  stage:     'blob3',  // blob[2]: stage
+  source:    'blob4',  // blob[3]: install_source (direct|workbench|ci)
+  file:      'blob5',  // blob[4]: install.sh|install.ps1
+  os:        'blob6',  // blob[5]: darwin|linux|windows
+  distro:    'blob7',  // blob[6]
+  arch:      'blob8',  // blob[7]
+  error:     'blob9',  // blob[8]: error_code
+  tool:      'blob10', // blob[9]: curl|powershell|wget|browser|other
+  country:   'blob11', // blob[10]
+  version:   'blob12', // blob[11]: script_version
+  user:      'blob13', // blob[12]: user_id
+  username:  'blob14', // blob[13]
+  machine:   'blob15', // blob[14]: machine_id
+  log:       'blob16', // blob[15]: log_tail
+  network:   'blob17', // blob[16]: asn + org
+  repo:      'blob18', // blob[17]: repo@ref
+  schema:    'blob19', // blob[18]: schema_version
+  reserved:  'blob20', // blob[19]: reserved
+};
+
+let charts = {};
+let failureRows = [];
+let activeInterval = { n: '1', unit: 'DAY' };
+
+// ── datetime helpers ──────────────────────────────────────────────────────────
+function toUtcSql(d) { return d.toISOString().replace('T', ' ').slice(0, 19); }
+function toDatetimeLocal(d) { const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
+function getFrom() { const v = document.getElementById('dt-from').value;
+  return v ? toUtcSql(new Date(v)) : toUtcSql(new Date(Date.now() - 7*24*3600*1000)); }
+function getTo() { const v = document.getElementById('dt-to').value;
+  return v ? toUtcSql(new Date(v)) : toUtcSql(new Date()); }
+function isLive() { return !document.getElementById('dt-to').value; }
+function updateLiveBadge() { document.getElementById('live-badge').style.display = isLive() ? '' : 'none'; }
+
+function esc(v) { return String(v).replace(/'/g, "''"); }
+function timeWhere() { return `timestamp >= toDateTime('${getFrom()}') AND timestamp <= toDateTime('${getTo()}')`; }
+function fmt(n) { return n == null ? '—' : Number(n).toLocaleString(); }
+
+// ── SQL queries ───────────────────────────────────────────────────────────────
+const q = {
+  kpis: () => `
+    SELECT
+      countIf(${F.event} IN ('install_success','install_failure','upgrade_success','upgrade_failure','uninstall_success','uninstall_failure')) AS total_events,
+      countIf(${F.event} = 'install_success') AS successes,
+      countIf(${F.event} = 'install_failure') AS failures,
+      countIf(${F.action} = 'upgrade') AS upgrades,
+      countIf(${F.action} = 'upgrade' AND ${F.event} = 'upgrade_success') AS upgrade_successes,
+      uniqExact(${F.user}) AS unique_users
+    FROM ${DATASET}
+    WHERE ${timeWhere()}
+  `,
+  timeSeries: () => `
+    SELECT toStartOfInterval(timestamp, INTERVAL '${activeInterval.n}' ${activeInterval.unit}) AS bucket,
+           countIf(${F.event} = 'install_success') AS successes,
+           countIf(${F.event} = 'install_failure') AS failures,
+           countIf(${F.action} = 'upgrade') AS upgrades
+    FROM ${DATASET}
+    WHERE ${timeWhere()}
+    GROUP BY bucket ORDER BY bucket
+  `,
+  bySource: () => `
+    SELECT ${F.source} AS src, count() AS cnt
+    FROM ${DATASET}
+    WHERE ${F.event} = 'install_success' AND ${timeWhere()}
+    GROUP BY src ORDER BY cnt DESC
+  `,
+  byOS: () => `
+    SELECT ${F.os} AS os, count() AS cnt
+    FROM ${DATASET}
+    WHERE ${F.event} = 'install_success' AND ${F.os} != '' AND ${timeWhere()}
+    GROUP BY os ORDER BY cnt DESC LIMIT 10
+  `,
+  heatMap: () => `
+    SELECT ${F.stage} AS stage, ${F.error} AS error_code, count() AS cnt
+    FROM ${DATASET}
+    WHERE ${F.event} = 'install_failure' AND ${timeWhere()}
+    GROUP BY stage, error_code ORDER BY cnt DESC LIMIT 100
+  `,
+  failures: () => `
+    SELECT
+      timestamp,
+      ${F.stage} AS stage,
+      ${F.error} AS error_code,
+      ${F.os} AS os,
+      ${F.source} AS src,
+      ${F.version} AS version,
+      ${F.log} AS log_tail
+    FROM ${DATASET}
+    WHERE ${F.event} = 'install_failure' AND ${timeWhere()}
+    ORDER BY timestamp DESC LIMIT 20
+  `,
+};
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function query(sql) {
+  const r = await fetch('/api/query', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sql: sql.trim().replace(/\s+/g, ' ') }),
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j.data || [];
+}
+
+// ── chart helpers ─────────────────────────────────────────────────────────────
+function makeChart(id, type, data, options = {}) {
+  const ctx = document.getElementById(id).getContext('2d');
+  if (charts[id]) charts[id].destroy();
+  const defaults = { plugins: { legend: { display: false } }, scales: {}, animation: { duration: 300 } };
+  if (type === 'bar' || type === 'line') {
+    defaults.scales = { x: { grid: { color: '#1e2030' }, ticks: { color: '#5b637a', font: { size: 11 } } },
+      y: { grid: { color: '#1e2030' }, ticks: { color: '#5b637a', font: { size: 11 } }, beginAtZero: true } };
+  }
+  charts[id] = new Chart(ctx, { type, data, options: deepMerge(defaults, options) });
+}
+function deepMerge(a, b) { const out = { ...a };
+  for (const k of Object.keys(b)) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a[k]) out[k] = deepMerge(a[k], b[k]); else out[k] = b[k]; }
+  return out; }
+function doughnut(id, labels, values) {
+  makeChart(id, 'doughnut', {
+    labels, datasets: [{ data: values, backgroundColor: PALETTE.slice(0, values.length), borderWidth: 0, hoverOffset: 4 }],
+  }, { plugins: { legend: { display: true, position: 'right', labels: { color: '#8892a4', font: { size: 12 }, padding: 12, boxWidth: 10 } } }, cutout: '65%' });
+}
+
+// ── KPIs ──────────────────────────────────────────────────────────────────────
+function setKpi(id, value, subHtml, cls) {
+  const el = document.getElementById(id);
+  el.querySelector('.kpi-value').classList.remove('skeleton');
+  el.querySelector('.kpi-sub').classList.remove('skeleton');
+  el.querySelector('.kpi-value').innerHTML = `<span class="${cls || ''}">${value}</span>`;
+  el.querySelector('.kpi-sub').innerHTML = subHtml;
+}
+
+async function loadKpis() {
+  const [row] = await query(q.kpis());
+  if (!row) return;
+  const successes = +row.successes || 0;
+  const failures = +row.failures || 0;
+  const total = successes + failures;
+  const rate = total > 0 ? Math.round(successes / total * 100) : null;
+  const rateClass = rate == null ? '' : rate >= 90 ? 'kpi-good' : rate >= 70 ? 'kpi-warn' : 'kpi-bad';
+  const upgrades = +row.upgrades || 0;
+  const upgradeSuccesses = +row.upgrade_successes || 0;
+  const upgradeRate = upgrades > 0 ? Math.round(upgradeSuccesses / upgrades * 100) : null;
+  const users = +row.unique_users || 0;
+
+  setKpi('kpi-installs', fmt(successes), `${fmt(failures)} failures`, 'kpi-indigo');
+  setKpi('kpi-success-rate', rate != null ? rate + '%' : '—', `${fmt(successes)} of ${fmt(total)} attempts`, rateClass);
+  setKpi('kpi-upgrade-rate', upgradeRate != null ? upgradeRate + '%' : '—', `${fmt(upgradeSuccesses)} of ${fmt(upgrades)} upgrades`, 'kpi-warn');
+  setKpi('kpi-unique-users', fmt(users), 'in range', 'kpi-blue');
+  setKpi('kpi-failures', fmt(failures), total > 0 ? `${Math.round(failures/total*100)}% of attempts` : 'no attempts', failures > 0 ? 'kpi-bad' : 'kpi-good');
+}
+
+// ── time series ───────────────────────────────────────────────────────────────
+function parseBucket(s) {
+  if (!s) return '';
+  const d = new Date(s.replace(' ', 'T') + (s.includes('T') ? '' : 'Z'));
+  if (isNaN(d)) return s.slice(0, 16);
+  const unit = activeInterval.unit;
+  if (unit === 'HOUR') return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+}
+
+async function loadTimeSeries() {
+  const rows = await query(q.timeSeries());
+  makeChart('chart-timeseries', 'line', {
+    labels: rows.map(r => parseBucket(r.bucket)),
+    datasets: [
+      { label: 'Successes', data: rows.map(r => +r.successes || 0), borderColor: '#10b981', backgroundColor: '#10b98120', tension: 0.3, fill: true, pointRadius: rows.length > 60 ? 0 : 3, pointHoverRadius: 5 },
+      { label: 'Failures', data: rows.map(r => +r.failures || 0), borderColor: '#f43f5e', backgroundColor: '#f43f5e15', tension: 0.3, fill: true, pointRadius: rows.length > 60 ? 0 : 3, pointHoverRadius: 5 },
+      { label: 'Upgrades', data: rows.map(r => +r.upgrades || 0), borderColor: '#f59e0b', backgroundColor: '#f59e0b15', tension: 0.3, fill: true, pointRadius: rows.length > 60 ? 0 : 3, pointHoverRadius: 5 },
+    ],
+  }, { plugins: { legend: { display: true, position: 'top', align: 'end', labels: { color: '#8892a4', font: { size: 12 }, padding: 16, boxWidth: 10 } },
+    tooltip: { backgroundColor: '#1a1d28', borderColor: '#252836', borderWidth: 1, titleColor: '#e2e8f0', bodyColor: '#8892a4' } } });
+}
+
+// ── breakdown charts ──────────────────────────────────────────────────────────
+async function loadBySource() {
+  const rows = await query(q.bySource());
+  if (!rows.length) return doughnut('chart-source', ['(no data)'], [1]);
+  doughnut('chart-source', rows.map(r => r.src || 'unknown'), rows.map(r => +r.cnt));
+}
+async function loadByOS() {
+  const rows = await query(q.byOS());
+  if (!rows.length) return doughnut('chart-os', ['(no data)'], [1]);
+  doughnut('chart-os', rows.map(r => r.os || 'unknown'), rows.map(r => +r.cnt));
+}
+
+// ── failure heat map ──────────────────────────────────────────────────────────
+async function loadHeatMap() {
+  const rows = await query(q.heatMap());
+  if (!rows.length) {
+    document.getElementById('heatmap-card').style.display = 'none';
+    return;
+  }
+  document.getElementById('heatmap-card').style.display = '';
+
+  const stages = [...new Set(rows.map(r => r.stage || '(unknown)'))].sort();
+  const errors = [...new Set(rows.map(r => r.error_code || '(unknown)'))];
+  const grid = {};
+  let maxCnt = 0;
+  for (const r of rows) {
+    const s = r.stage || '(unknown)';
+    const e = r.error_code || '(unknown)';
+    grid[`${s}|${e}`] = +r.cnt;
+    if (+r.cnt > maxCnt) maxCnt = +r.cnt;
+  }
+
+  // Table header: stage names
+  document.getElementById('heatmap-thead').innerHTML =
+    '<tr><th>Error ↓ / Stage →</th>' + stages.map(s => `<th>${s}</th>`).join('') + '</tr>';
+
+  // Table body
+  document.getElementById('heatmap-tbody').innerHTML = errors.map(e => {
+    const cells = stages.map(s => {
+      const cnt = grid[`${s}|${e}`] || 0;
+      const bucket = maxCnt > 0 ? Math.min(4, Math.ceil(cnt / maxCnt * 4)) : 0;
+      return `<td class="heat-cell heat-cell-${bucket}">${cnt || ''}</td>`;
+    }).join('');
+    return `<tr><td style="color:var(--text)">${e}</td>${cells}</tr>`;
+  }).join('');
+}
+
+// ── recent failures ───────────────────────────────────────────────────────────
+function relTime(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts.replace(' ', 'T') + (ts.includes('T') ? '' : 'Z'));
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60) return `${Math.round(diff)}s ago`;
+  if (diff < 3600) return `${Math.round(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.round(diff/3600)}h ago`;
+  return d.toLocaleDateString('en-GB', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+async function loadFailures() {
+  const rows = await query(q.failures());
+  failureRows = rows;
+  const tbody = document.getElementById('failures-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);padding:20px 12px;">No failures in range.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map((r, i) => `<tr>
+    <td style="color:var(--muted);white-space:nowrap;font-size:12px">${relTime(r.timestamp)}</td>
+    <td>${r.stage || '<span style="color:var(--muted)">—</span>'}</td>
+    <td style="color:var(--rose);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.error_code)}">${r.error_code || '—'}</td>
+    <td>${r.os || '—'}</td>
+    <td>${r.src || '—'}</td>
+    <td>${r.version || '—'}</td>
+    <td>${r.log_tail ? `<button class="log-btn" onclick="showFailureLog(${i})">view</button>` : '<span style="color:var(--muted)">—</span>'}</td>
+  </tr>`).join('');
+}
+
+function showFailureLog(i) {
+  const r = failureRows[i];
+  if (!r) return;
+  document.getElementById('log-modal-title').textContent = `Failure · ${r.stage || 'unknown stage'}`;
+  document.getElementById('log-modal-meta').textContent =
+    [r.os, r.src, r.version, r.error_code ? `error: ${r.error_code}` : '', relTime(r.timestamp)]
+      .filter(Boolean).join(' · ');
+  document.getElementById('log-modal-content').textContent =
+    (r.log_tail || '(no log)').slice(0, 200);
+  document.getElementById('log-modal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLog() {
+  document.getElementById('log-modal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLog(); });
+
+// ── preset + interval buttons ─────────────────────────────────────────────────
+document.querySelectorAll('#preset-btns .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const hours = +btn.dataset.hours;
+    const now = new Date();
+    document.getElementById('dt-from').value = toDatetimeLocal(new Date(now.getTime() - hours * 3600_000));
+    document.getElementById('dt-to').value = '';
+    updateLiveBadge();
+    document.querySelectorAll('#preset-btns .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // Auto-select appropriate bucket interval
+    const i = hours <= 48 ? { n:'6', unit:'HOUR' } : hours <= 168 ? { n:'6', unit:'HOUR' } : { n:'1', unit:'DAY' };
+    setIntervalActive(i.n, i.unit);
+    loadAll();
+  });
+});
+
+function setIntervalActive(n, unit) {
+  activeInterval = { n, unit };
+  document.querySelectorAll('#interval-btns .seg-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.n === n && b.dataset.unit === unit);
+  });
+}
+
+document.querySelectorAll('#interval-btns .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => { setIntervalActive(btn.dataset.n, btn.dataset.unit); loadTimeSeries(); });
+});
+
+document.getElementById('dt-to').addEventListener('change', () => { updateLiveBadge(); loadAll(); });
+document.getElementById('dt-from').addEventListener('change', () => { loadAll(); });
+
+// ── orchestrate ───────────────────────────────────────────────────────────────
+function setStatus(ok, msg) {
+  document.getElementById('status-dot').className = 'dot' + (ok ? '' : ' error');
+  document.getElementById('status-text').textContent = msg;
+}
+
+async function loadAll() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  setStatus(true, 'Loading…');
+  const t0 = Date.now();
+
+  const results = await Promise.allSettled([
+    loadKpis(), loadTimeSeries(), loadBySource(), loadByOS(), loadHeatMap(), loadFailures(),
+  ]);
+
+  btn.classList.remove('spinning');
+  const failed = results.filter(r => r.status === 'rejected');
+  if (failed.length) {
+    setStatus(false, `Error: ${failed[0].reason?.message || 'unknown'}`);
+    console.error('Dashboard errors:', failed.map(f => f.reason));
+  } else {
+    setStatus(true, `Loaded in ${Date.now()-t0}ms · ${DATASET}`);
+  }
+  document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+document.getElementById('refresh-btn').addEventListener('click', loadAll);
+setInterval(() => { if (isLive()) loadAll(); }, 5 * 60 * 1000);
+
+// ── init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  // Default: 7-day window
+  const now = new Date();
+  document.getElementById('dt-from').value = toDatetimeLocal(new Date(now - 7*24*3600_000));
+  updateLiveBadge();
+  loadAll();
+}
+
+init();
+</script>
+</body>
+</html>

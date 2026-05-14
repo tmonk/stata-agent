@@ -5,18 +5,53 @@ build-backend = "hatchling.build"
 [project]
 name = "stata-agent"
 version = "0.1.0"
-description = "CLI-native Stata integration via daemon, skills, and structured error extraction"
+description = "CLI-native Stata integration for AI agents. Run code, inspect data, retrieve results, export graphs, and test do-files."
+readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "Oh My Pi", email = "dev@ohmy.pi"}
+    {name = "Thomas Monk", email = "t.d.monk@lse.ac.uk"}
+]
+maintainers = [
+    {name = "Thomas Monk", email = "t.d.monk@lse.ac.uk"}
+]
+keywords = [
+    "stata-agent",
+    "stata",
+    "statistics",
+    "econometrics",
+    "data-analysis",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = [
+    "pyarrow>=24.0.0",
+    "pydantic>=2.13.4",
+    "pystata-x>=0.2.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/tmonk/stata-agent"
+Repository = "https://github.com/tmonk/stata-agent"
+Documentation = "https://github.com/tmonk/stata-agent"
+
 [project.scripts]
-stata = "stata_agent.cli:main"
+stata-agent = "stata_agent.cli:main"
 
 [project.optional-dependencies]
 mock = []
+data-browser = ["pyarrow>=14.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/stata_agent"]
@@ -32,4 +67,5 @@ filterwarnings = ["ignore::DeprecationWarning"]
 [dependency-groups]
 dev = [
     "pytest-asyncio>=0.24",
+    "pytest-benchmark>=5.1.0",
 ]

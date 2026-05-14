@@ -1,4 +1,0 @@
-. capture error 111
-
-. display "Return code after error 111: " _rc
-Return code after error 111: 111

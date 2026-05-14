@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "stata-agent upgrade --quiet 2>/dev/null",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,3 +1,0 @@
-. error 111
-invalid syntax
-r(111);

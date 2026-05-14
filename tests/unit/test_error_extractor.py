@@ -20,15 +20,15 @@ def _extract_deep(log_path: str | Path, default_rc: int | None = None):
 
 
 class TestMarkerExtraction:
-    """Phase 1: structured [MCP-ERROR] markers."""
+    """Phase 1: structured [AGENT-ERROR] markers."""
 
     def test_basic_marker(self):
         log = (
             ". regress y z_nonexistent\n"
             "variable z_nonexistent not found\n"
             "r(111);\n"
-            "[MCP-ERROR] rc=111\n"
-            "[MCP-MSG] variable not found\n"
+            "[AGENT-ERROR] rc=111\n"
+            "[AGENT-MSG] variable not found\n"
         )
         err = _extract(log)
         assert err is not None
@@ -38,7 +38,7 @@ class TestMarkerExtraction:
         assert "variable not found" in err.message
 
     def test_marker_no_msg(self):
-        log = "[MCP-ERROR] rc=9\n"
+        log = "[AGENT-ERROR] rc=9\n"
         err = _extract(log)
         assert err is not None
         assert err.rc == 9
@@ -50,7 +50,7 @@ class TestMarkerExtraction:
             "mata: x = y + z\n"
             "<istmt>:  3499  y not found\n"
             "r(3499);\n"
-            "[MCP-ERROR] rc=3499\n"
+            "[AGENT-ERROR] rc=3499\n"
         )
         err = _extract(log)
         assert err is not None

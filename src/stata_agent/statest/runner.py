@@ -1,6 +1,6 @@
 """Statest testing framework runner — RpcClient-based.
 
-Replaces the old mcp_stata session_manager coupling with direct RPC
+Replaces the old session_manager coupling with direct RPC
 calls to the stata-agent daemon.
 """
 

@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-LOG_DIR_DEFAULT = Path.home() / ".cache" / "mcp-stata" / "logs"
+LOG_DIR_DEFAULT = Path.home() / ".cache" / "stata-agent" / "logs"
 
 
 class LogRotator:
@@ -60,6 +60,12 @@ class LogRotator:
 
     def get_current_path(self) -> Path:
         return self.current_path
+
+    def next_path(self) -> Path:
+        """Return the path that would be used on the next rotation, without rotating."""
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        next_seq = self._sequence + 1
+        return self.log_dir / f"{self.session_name}_{ts}_{next_seq:03d}.log"
 
     def cleanup_old(self) -> int:
         """Remove log files older than TTL.
@@ -145,10 +151,15 @@ def tail_file(log_path: str | Path, lines: int = 50) -> str:
         data = f.read()
         text = data.decode("utf-8", errors="replace")
 
-        # If we didn't get enough lines from estimated position, read more
+        # If we didn't get enough lines, read more (iterative, not recursive)
         split = text.splitlines()
         if len(split) < lines and pos > 0:
-            return tail_file(log_path, lines)  # recursive retry
+            # Read double-sized chunk from earlier position
+            pos = max(0, pos - lines * avg_line * 4)
+            f.seek(pos)
+            data = f.read()
+            text = data.decode("utf-8", errors="replace")
+            split = text.splitlines()
 
         return "\n".join(split[-lines:])
 
@@ -171,18 +182,34 @@ def search_in_log(
     if offset >= file_size:
         return {"matches": [], "next_offset": None, "total_size": file_size}
 
+    # Fast path: if pattern contains no regex metacharacters, use simple substring search
     compiled = re.compile(pattern)
-
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
-        f.seek(offset)
-        data = f.read(max_bytes)
+    is_simple = not any(c in pattern for c in r"\.*+?^$()[]{}| ")
 
     matches = []
-    for line in data.splitlines():
-        if compiled.search(line):
-            matches.append(line)
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        f.seek(offset)
+        remaining = max_bytes
+        while remaining > 0:
+            chunk_size = min(remaining, 65536)  # 64 KB chunks
+            data = f.read(chunk_size)
+            if not data:
+                break
+            remaining -= len(data.encode("utf-8"))
 
-    next_offset = offset + len(data.encode("utf-8"))
+            for line in data.splitlines():
+                if is_simple:
+                    if pattern in line:
+                        matches.append(line)
+                else:
+                    if compiled.search(line):
+                        matches.append(line)
+
+    # Calculate actual bytes consumed
+    with open(path, "rb") as f:
+        f.seek(offset)
+        raw = f.read(max_bytes)
+    next_offset = offset + len(raw)
     if next_offset >= file_size:
         next_offset = None
 

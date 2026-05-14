@@ -42,10 +42,19 @@ def _platform_candidates() -> list[str]:
     paths: list[str] = []
 
     if plat == "darwin":
-        # macOS: .app bundles first, then /usr/local/bin
+        # macOS: CLI binary inside .app bundle first (runs headlessly),
+        # then the GUI binary, then /usr/local/bin.
+        for edition in ("SE", "MP", "BE"):
+            paths.append(
+                f"/Applications/StataNow/Stata{edition}.app/Contents/MacOS/stata-{edition.lower()}"
+            )
         for edition in ("SE", "MP", "BE"):
             paths.append(
                 f"/Applications/StataNow/Stata{edition}.app/Contents/MacOS/Stata{edition}"
+            )
+        for edition in ("SE", "MP", "BE"):
+            paths.append(
+                f"/Applications/Stata/Stata{edition}.app/Contents/MacOS/stata-{edition.lower()}"
             )
         for edition in ("SE", "MP", "BE"):
             paths.append(

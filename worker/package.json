@@ -1,0 +1,13 @@
+{
+  "name": "stata-agent-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test tests/telemetry.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

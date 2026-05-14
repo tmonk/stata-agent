@@ -1,0 +1,7 @@
+{
+  "name": "stata-agent",
+  "version": "{{VERSION}}",
+  "description": "stata-agent — CLI-native Stata integration for AI agents.",
+  "contextFileName": "AGENTS.md",
+  "plan": { "directory": ".gemini/plans" }
+}

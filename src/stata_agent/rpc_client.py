@@ -10,7 +10,7 @@ from typing import Any, Optional
 from pathlib import Path
 
 
-SESSION_DIR = Path.home() / ".cache" / "mcp-stata" / "sessions"
+SESSION_DIR = Path.home() / ".cache" / "stata-agent" / "sessions"
 
 
 def _get_socket_path(session: str = "default") -> Path:
@@ -49,11 +49,20 @@ class RpcClient:
         # Fall back to TCP from meta file
         meta_path = _get_meta_path(self.session)
         if meta_path.exists():
-            meta = json.loads(meta_path.read_text())
+            try:
+                meta = json.loads(meta_path.read_text())
+            except (json.JSONDecodeError, ValueError):
+                # Corrupt meta file — treat as missing
+                meta_path.unlink(missing_ok=True)
+                raise FileNotFoundError(f"Daemon socket not found for session '{self.session}'")
             if meta.get("transport") == "tcp":
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.settimeout(self.timeout)
-                s.connect((meta["host"], meta["port"]))
+                try:
+                    s.connect((meta["host"], meta.get("port", 0)))
+                except (KeyError, TypeError):
+                    s.close()
+                    raise FileNotFoundError(f"Daemon socket not found for session '{self.session}'")
                 return s
 
         raise FileNotFoundError(f"Daemon socket not found for session '{self.session}'")

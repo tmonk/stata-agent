@@ -1,0 +1,12 @@
+name = "stata-agent"
+main = "src/index.js"
+compatibility_date = "2026-05-13"
+
+[vars]
+GITHUB_REPO = "tmonk/stata-agent"
+INSTALL_REF = "main"
+INSTALL_SUBPATH = "stata-agent"
+
+[[analytics_engine_datasets]]
+binding = "STATA_AGENT"
+dataset = "stata_agent_installs"

@@ -16,7 +16,7 @@ from stata_agent.rpc_client import RpcClient
 @pytest.fixture(scope="module")
 def mock_daemon():
     """Start a mock daemon and return an RPC client."""
-    os.environ["MCP_STATA_MOCK"] = "1"
+    os.environ["STATA_AGENT_MOCK"] = "1"
 
     from stata_agent.mock_backend import MockDaemon
 
@@ -28,7 +28,7 @@ def mock_daemon():
     t = threading.Thread(target=_start, daemon=True)
     t.start()
 
-    sock_path = Path.home() / ".cache" / "mcp-stata" / "sessions" / "statest_test.sock"
+    sock_path = Path.home() / ".cache" / "stata-agent" / "sessions" / "statest_test.sock"
     for _ in range(100):
         if sock_path.exists():
             break
@@ -47,7 +47,7 @@ def mock_daemon():
     except Exception:
         pass
     sock_path.unlink(missing_ok=True)
-    meta_path = Path.home() / ".cache" / "mcp-stata" / "sessions" / "statest_test.json"
+    meta_path = Path.home() / ".cache" / "stata-agent" / "sessions" / "statest_test.json"
     meta_path.unlink(missing_ok=True)
 
 
