@@ -1,9 +1,0 @@
-
-
-. // Test 3: Assertion failure
-. assert 1==0
-assertion is false
-r(9);
-
-end of do-file
-r(9);

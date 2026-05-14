@@ -16,8 +16,6 @@ import uuid
 from pathlib import Path
 from typing import Any, Optional
 
-RESPONSES_DIR = Path(__file__).resolve().parent.parent.parent / "features" / "09-mock-test-mode" / "responses"
-
 
 # ---------------------------------------------------------------------------
 # Path sanitisation — keep output under a safe temp directory
@@ -51,38 +49,95 @@ def _sanitise_out_path(raw: str, session: str) -> str:
     return str(safe_dir / safe_name)
 
 
-def _load_canned_responses() -> dict[str, dict[str, Any]]:
-    """Load all canned response text files into a dict keyed by command pattern."""
-    responses: dict[str, dict[str, Any]] = {}
+# ---------------------------------------------------------------------------
+# Canned responses — inline data formerly loaded from
+# features/09-mock-test-mode/responses/*.txt
+# ---------------------------------------------------------------------------
 
-    if not RESPONSES_DIR.exists():
-        return responses
-
-    file_map: dict[str, str] = {
-        "display_1plus1.txt": "display 1+1",
-        "sysuse_auto.txt": "sysuse auto",
-        "describe_auto.txt": "describe",
-        "summarize_auto.txt": "summarize price mpg",
-        "reg_price_mpg.txt": "reg price mpg",
-        "error_111.txt": "error 111",
-        "capture_error_111.txt": "capture error 111",
-        "assert_failure.txt": "capture assert 1==0",
-        "tabulate_rep78.txt": "tab rep78",
+def _make_canned(output: str) -> dict[str, Any]:
+    """Build a canned response dict from output text."""
+    last_line = output.splitlines()[-1] if output.splitlines() else ""
+    return {
+        "output": output,
+        "success": "r(" not in last_line,
     }
 
-    for filename, command in file_map.items():
-        filepath = RESPONSES_DIR / filename
-        if filepath.exists():
-            text = filepath.read_text(encoding="utf-8")
-            responses[command] = {
-                "output": text,
-                "success": "r(" not in text.splitlines()[-1] if text.splitlines() else True,
-            }
 
-    return responses
-
-
-_CANNED = _load_canned_responses()
+_CANNED: dict[str, dict[str, Any]] = {
+    "display 1+1": _make_canned(". display 1+1\n2\n"),
+    "sysuse auto": _make_canned(
+        ". sysuse auto, clear\n(1978 automobile data)\n"
+    ),
+    "describe": _make_canned(
+        ". describe\n\n"
+        "Contains data from /Applications/StataNow/ado/base/a/auto.dta\n"
+        " Observations:            74                  1978 automobile data\n"
+        "    Variables:            12                  13 Apr 2024 17:45\n"
+        "                                              (_dta has notes)\n"
+        "-------------------------------------------------------------------------------\n"
+        "Variable      Storage   Display    Value\n"
+        "    name         type    format      label    Variable label\n"
+        "-------------------------------------------------------------------------------\n"
+        "make            str18   %-18s                 Make and model\n"
+        "price           int     %8.0gc                Price\n"
+        "mpg             int     %8.0g                 Mileage (mpg)\n"
+        "rep78           int     %8.0g                 Repair record 1978\n"
+        "headroom        float   %6.1f                 Headroom (in.)\n"
+        "trunk           int     %8.0g                 Trunk space (cu. ft.)\n"
+        "weight          int     %8.0gc                Weight (lbs.)\n"
+        "length          int     %8.0g                 Length (in.)\n"
+        "turn            int     %8.0g                 Turn circle (ft.)\n"
+        "displacement    int     %8.0g                 Displacement (cu. in.)\n"
+        "gear_ratio      float   %6.2f                 Gear ratio\n"
+        "foreign         byte    %8.0g      origin     Car origin\n"
+        "-------------------------------------------------------------------------------\n"
+        "Sorted by: foreign\n"
+    ),
+    "summarize price mpg": _make_canned(
+        ". summarize price mpg\n\n"
+        "    Variable |        Obs        Mean    Std. dev.       Min        Max\n"
+        "-------------+---------------------------------------------------------\n"
+        "       price |         74    6165.257    2949.496       3291      15906\n"
+        "         mpg |         74     21.2973    5.785503         12         41\n"
+    ),
+    "reg price mpg": _make_canned(
+        ". reg price mpg\n\n"
+        "      Source |       SS           df       MS      Number of obs   =        74\n"
+        "-------------+----------------------------------   F(1, 72)        =     20.26\n"
+        "       Model |   139449474         1   139449474   Prob > F        =    0.0000\n"
+        "    Residual |   495615923        72  6883554.48   R-squared       =    0.2196\n"
+        "-------------+----------------------------------   Adj R-squared   =    0.2087\n"
+        "       Total |   635065396        73  8699525.97   Root MSE        =    2623.7\n"
+        "------------------------------------------------------------------------------\n"
+        "       price | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]\n"
+        "-------------+----------------------------------------------------------------\n"
+        "         mpg |  -238.8943   53.07669    -4.50   0.000    -344.7008   -133.0879\n"
+        "       _cons |   11253.06   1170.813     9.61   0.000     8919.088    13587.03\n"
+        "------------------------------------------------------------------------------\n"
+    ),
+    "error 111": _make_canned(". error 111\ninvalid syntax\nr(111);\n"),
+    "capture error 111": _make_canned(
+        ". capture error 111\n\n. display \"Return code after error 111: \" _rc\n"
+        "Return code after error 111: 111\n"
+    ),
+    "capture assert 1==0": _make_canned(
+        ". capture assert 1==0\n\n. display \"Return code after assert: \" _rc\n"
+        "Return code after assert: 9\n"
+    ),
+    "tab rep78": _make_canned(
+        ". tabulate rep78\n\n"
+        "     Repair |\n"
+        "record 1978 |      Freq.     Percent        Cum.\n"
+        "------------+-----------------------------------\n"
+        "          1 |          2        2.90        2.90\n"
+        "          2 |          8       11.59       14.49\n"
+        "          3 |         30       43.48       57.97\n"
+        "          4 |         18       26.09       84.06\n"
+        "          5 |         11       15.94      100.00\n"
+        "------------+-----------------------------------\n"
+        "      Total |         69      100.00\n"
+    ),
+}
 
 # State machine for mock sessions
 _session_state: dict[str, dict[str, Any]] = {}
