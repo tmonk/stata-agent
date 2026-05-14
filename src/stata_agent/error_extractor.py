@@ -1,7 +1,7 @@
 """Structured error extraction from Stata text logs.
 
 Two-phase parser:
-  Phase 1: Forward scan for [MCP-ERROR] / [MCP-MSG] markers (authoritative).
+  Phase 1: Forward scan for [AGENT-ERROR] / [AGENT-MSG] markers (authoritative).
   Phase 2: Fallback backward scan for native error signatures (r(NNN);,
            Mata <istmt>, assertion failures).
 """
@@ -14,8 +14,8 @@ from typing import Optional
 from stata_agent.models import StructuredError
 
 # Patterns for structured markers (Phase 1)
-MARKER_ERROR_RE = re.compile(r"\[MCP-ERROR\] rc=(\d+)")
-MARKER_MSG_RE = re.compile(r"\[MCP-MSG\] (.+)")
+MARKER_ERROR_RE = re.compile(r"\[AGENT-ERROR\] rc=(\d+)")
+MARKER_MSG_RE = re.compile(r"\[AGENT-MSG\] (.+)")
 
 # Fallback patterns for text-mode logs (Phase 2)
 R_CODE_RE = re.compile(r"^r\((\d+)\);?\s*$")
@@ -36,6 +36,36 @@ PATTERN_RC: dict[re.Pattern, int] = {
 
 TAIL_SCAN_BYTES = 32768
 
+# Combined regex built from existing error patterns (no duplication).
+# Used by extract_deep for a single-pass scan over the full text.
+_COMBINED_ERROR_RE: Optional[re.Pattern] = None
+
+
+def _build_combined_error_re() -> re.Pattern:
+    """Build a single combined str regex from the existing error patterns.
+
+    Avoids hardcoding new patterns — joins existing pattern strings.
+    Cached for reuse. Returns a MULTILINE str regex for fast single-pass
+    scanning over decoded text.
+    """
+    global _COMBINED_ERROR_RE
+    if _COMBINED_ERROR_RE is not None:
+        return _COMBINED_ERROR_RE
+
+    parts = []
+    # Fallback native error patterns only (Phase 2)
+    parts.append(R_CODE_RE.pattern)
+    parts.append(MATA_ERROR_RE.pattern)
+    parts.append(ASSERTION_RE.pattern)
+    parts.append(BREAK_ERROR_RE.pattern)
+    for p in PATTERN_RC:
+        parts.append(p.pattern)
+
+    combined = "|".join(f"(?:{p})" for p in parts)
+    flags = re.MULTILINE | re.IGNORECASE
+    _COMBINED_ERROR_RE = re.compile(combined, flags)
+    return _COMBINED_ERROR_RE
+
 
 class ErrorExtractor:
     """Extract structured errors from text logs."""
@@ -45,7 +75,7 @@ class ErrorExtractor:
     ) -> Optional[StructuredError]:
         """Return parsed StructuredError or None.
 
-        Phase 1 scans for structured [MCP-ERROR] markers.
+        Phase 1 scans for structured [AGENT-ERROR] markers.
         Phase 2 falls back to native error pattern scanning.
         """
         if not log_text or not log_text.strip():
@@ -97,17 +127,16 @@ class ErrorExtractor:
     ) -> Optional[StructuredError]:
         """Deep backward scan of entire log file.
 
-        First tries fast tail scan (32 KB). If nothing found, scans full
-        file in 8 KB chunks backwards.
+        First tries fast tail scan (32 KB). If nothing found, reads
+        the full file and runs the two-phase parser (markers +
+        fallback backward scan) on the decoded text.
         """
         # Fast path
         err = self.extract_from_tail(log_path, default_rc)
         if err is not None:
             return err
 
-        # Fallback: deeper backward scan
         import os
-
         try:
             file_size = os.path.getsize(log_path)
         except OSError:
@@ -116,46 +145,24 @@ class ErrorExtractor:
         if file_size == 0:
             return None
 
-        chunk_size = 8192
-        pos = file_size
-        partial = b""
-
         with open(log_path, "rb") as f:
-            while pos > 0:
-                read_size = min(chunk_size, pos)
-                pos -= read_size
-                f.seek(pos)
-                chunk = f.read(read_size)
-                combined = chunk + partial
-                nl = combined.rfind(b"\n")
-                if nl == -1:
-                    partial = combined
-                    continue
+            data = f.read()
 
-                partial = combined[:nl]
-                tail_lines = combined[nl + 1 :].split(b"\n")
+        text = data.decode("utf-8", errors="replace")
+        lines = text.splitlines()
 
-                for line_bytes in reversed(tail_lines):
-                    if not line_bytes.strip():
-                        continue
-                    line = line_bytes.decode("utf-8", errors="replace")
-                    err = self._check_error_line(line, default_rc)
-                    if err is not None:
-                        return err
+        # Phase 2: backward scan for native errors
+        err = self._fallback_extract(lines, default_rc)
+        if err is not None:
+            return err
 
-            # Check remaining partial
-            if partial.strip():
-                text = partial.decode("utf-8", errors="replace")
-                err = self.extract(text, default_rc)
-                if err is not None:
-                    return err
-
-        return None
+        # Phase 1: forward scan for structured markers
+        return self._marker_extract(lines)
 
     def _marker_extract(
         self, lines: list[str]
     ) -> Optional[StructuredError]:
-        """Phase 1: scan forward for [MCP-ERROR] markers."""
+        """Phase 1: scan forward for [AGENT-ERROR] markers."""
         marker_rc: Optional[int] = None
         marker_msg: Optional[str] = None
         marker_line_idx: Optional[int] = None
