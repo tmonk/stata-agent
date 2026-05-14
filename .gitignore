@@ -14,3 +14,6 @@ benchmarks/history/
 # Bool-as-path bug artifacts (historical)
 True.log
 False.log
+
+# pi agent workspace — not part of the project
+.pi/
