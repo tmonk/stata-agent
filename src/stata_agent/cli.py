@@ -546,12 +546,12 @@ def cmd_doctor(args: Any) -> int:
     except Exception as e:
         print(f"  Stata: {e}")
 
-    # Check pystata
+    # Check pystata-x (independent drop-in replacement for pystata)
     try:
-        import pystata  # noqa: F401
-        print(f"  pystata: available")
+        import pystata_x  # noqa: F401
+        print(f"  pystata-x: available")
     except ImportError:
-        print(f"  pystata: not available (install via 'pip install pystata' or use Stata's Python)")
+        print(f"  pystata-x: not available")
 
     # Check daemon
     try:

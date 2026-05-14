@@ -1,7 +1,8 @@
-"""pystata client — all Stata operations via SFI.
+"""Stata operations via SFI — wraps ``pystata-x`` for execution.
 
-This module wraps pystata/SFI calls. It never runs in the daemon
-process — only inside worker subprocesses.
+This module wraps SFI calls. It never runs in the daemon process — only
+inside worker subprocesses.  Core Stata execution is delegated to
+``pystata_x._core.execute()``.
 """
 
 from __future__ import annotations
@@ -15,10 +16,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
-# Reusable temp path for multiline do-file execution (per-process).
-# Created once at module load, avoids NamedTemporaryFile overhead per call.
-_STATA_TEMP_DO = os.path.join(tempfile.gettempdir(), "_stata_agent_temp.do")
 
 from stata_agent.error_extractor import ErrorExtractor
 from stata_agent.log_manager import (
@@ -35,10 +32,10 @@ LOG_DIR_DEFAULT = Path.home() / ".cache" / "stata-agent" / "logs"
 
 
 class StataClient:
-    """Wrapper around pystata for all Stata operations.
+    """Wrapper around Stata (via pystata-x/SFI) for all Stata operations.
 
-    This must be initialised inside a Python process that has pystata
-    available (Stata's bundled Python, or after stata_setup).
+    This must be initialised inside a Python process that has Stata
+    available (Stata's bundled Python, or after pystata_x.stata_setup).
     """
 
     def __init__(self, session_name: str = "default", log_dir: str | Path | None = None):
@@ -54,21 +51,20 @@ class StataClient:
         self._cached_graphs: set[str] = set()
 
     def init(self) -> None:
-        """Initialise pystata. Call this once at worker startup."""
+        """Initialise Stata. Call this once at worker startup."""
         if self._initialised:
             return
 
         try:
-            # If pystata hasn't been configured yet (config.stlib is None),
-            # try to auto-discover and initialise it via stata_setup.
-            from pystata import config as _pystata_config
+            # Check if pystata-x has already initialised Stata.
+            from pystata_x import _config as _px_config
 
-            if _pystata_config.stlib is None:
-                import stata_setup
+            if not _px_config.stinitialized:
+                from pystata_x.stata_setup import config as px_setup_config
                 from stata_agent.discovery import find_stata_path
 
                 # find_stata_path returns the binary path; we need the root
-                # directory that contains utilities/ for stata_setup.config().
+                # directory that contains utilities/.
                 bin_path, edition = find_stata_path()
                 bin_dir = os.path.dirname(os.path.abspath(bin_path))
                 root = bin_dir
@@ -85,15 +81,15 @@ class StataClient:
                         f"Cannot find Stata root directory (with utilities/) "
                         f"from binary path: {bin_path}"
                     )
-                stata_setup.config(root, edition, splash=False)
+                px_setup_config(root, edition, splash=False)
 
             from sfi import Macro, Data  # noqa: F401
             self._sfi_available = True
         except Exception as exc:
             self._sfi_available = False
             raise ImportError(
-                "pystata/SFI not available. Run this worker inside Stata's "
-                "Python or install pystata via stata_setup. Error: " + str(exc)
+                "Stata/SFI not available. Run this worker inside Stata's "
+                "Python. Error: " + str(exc)
             )
 
         # Open a text-mode log
@@ -458,65 +454,26 @@ class StataClient:
 
         Fast path for internal commands (graph dir, log operations, etc.)
         where we only need the return code and/or read results via SFI.
-        Skips all output capture overhead: no StringIO, no RedirectOutput,
-        no print-loop.
+        Delegates to ``pystata_x._core.execute()`` with ``capture=False``.
 
         Returns:
             return_code
         """
-        from pystata import config
-        execute = config.stlib.StataSO_Execute
-        rc = execute(config.get_encode_str(code), False)
-        _ = config.get_output()  # drain buffer
+        from pystata_x._core import execute
+        _, rc = execute(code, echo=False, capture=False)
         return rc
 
     def _stata_run(self, code: str, echo: bool = False) -> tuple[str, int]:
         """Execute code in Stata and return (output, rc).
 
-        Optimised path — direct StataSO_Execute + get_output, no StringIO,
-        no RedirectOutput context, no print-loop overhead.
-
-        For single-line code, executes directly via StataSO_Execute(code, echo).
-        For multi-line code, writes a reused temp do-file and uses ``include``
-        — StataSO_Execute propagates the do-file's exit code correctly.
+        Delegates to ``pystata_x._core.execute()`` for the actual execution.
+        The fast-path logic (single-line vs multi-line) lives there.
 
         Returns:
             (output_text, return_code)
         """
-        from pystata import config
-
-        # Cache locals for speed
-        execute = config.stlib.StataSO_Execute
-        encode = config.get_encode_str
-        get_output = config.get_output
-
-        lines = code.splitlines()
-        non_blank = [ln for ln in lines if ln.strip()]
-
-        if len(non_blank) == 1:
-            # Single line — execute directly (fast path)
-            config.stlib.StataSO_ClearOutputBuffer()
-            rc = execute(encode(code), echo)
-            output = get_output() or ""
-            return output.strip(), rc
-
-        # Multi-line code — write to reused temp file and include
-        do_path = _STATA_TEMP_DO
-        with open(do_path, "w", encoding="utf-8") as f:
-            f.write(code)
-
-        # Showcommand management for echo=False
-        if not echo:
-            execute(encode("set showcommand off"), False)
-
-        config.stlib.StataSO_ClearOutputBuffer()
-        rc = execute(encode(f'include "{do_path}"'), False)
-        output = get_output() or ""
-
-        if not echo:
-            execute(encode("set showcommand on"), False)
-
-        return output.strip(), rc
+        from pystata_x._core import execute
+        return execute(code, echo=echo, capture=True)
 
     def _read_log_tail(self, lines: int = 200, max_bytes: int = 131072) -> str:
         """Read tail of the Stata log file efficiently.
