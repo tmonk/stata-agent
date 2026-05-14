@@ -96,7 +96,7 @@ class StataClient:
         self._log_path = self._rotator.current_path
 
         self._stata_run(
-            f'cap log close _agent_session',
+            'cap log close _agent_session',
             echo=False,
         )
         self._stata_run(
@@ -105,6 +105,13 @@ class StataClient:
         )
 
         self._initialised = True
+
+        # Pre-populate the cached graph set so the first track_graphs=True
+        # run does not report pre-existing graphs as newly "created".
+        try:
+            self._cached_graphs = self.snapshot_graphs()
+        except Exception:
+            self._cached_graphs = set()
 
     def close(self) -> None:
         """Clean up Stata resources."""
@@ -125,14 +132,19 @@ class StataClient:
         max_output_tokens: int = 1000,
         strict: bool = False,
         pre_allocated_log: str | None = None,
-        track_graphs: bool = True,
+        track_graphs: bool = False,
     ) -> RunResult:
         """Execute Stata code and return structured result.
 
-        Tracks graph state changes by using a cached pre-execution snapshot
-        and a single post-execution snapshot (avoids the second ``graph dir``
-        call). Set ``track_graphs=False`` to skip graph tracking entirely
-        for maximum throughput.
+        When ``track_graphs=True``, the graph detection is bundled into the
+        execution call — after running *code* a single ``graph dir, memory``
+        command is executed and ``r(list)`` is read via SFI.  The result
+        is diffed against the cached graph state from the previous tracked
+        run, so only one ``graph dir`` call is needed per invocation.
+
+        Set ``track_graphs=False`` (default) for maximum throughput — graph
+        state is not queried, and the result's ``graph`` delta will be empty.
+        Use :meth:`snapshot_graphs` directly to query graph state explicitly.
 
         Uses StataSO_Execute() directly to get the return code from Stata's
         C API — no log-file parsing needed for error detection.
@@ -142,13 +154,18 @@ class StataClient:
         if pre_allocated_log:
             self._log_path = Path(pre_allocated_log)
 
-        stdout, rc = self._stata_run(code, echo=echo)
+        # Bundled execution: execute() runs the user code AND (if
+        # track_graphs) internally queries graph state, avoiding a
+        # separate Python dispatch round-trip for the graph dir call.
+        from pystata_x._core import execute
+
+        result = execute(code, echo=echo, capture=True, track_graphs=track_graphs)
+        stdout, rc = result.output, result.rc
 
         if track_graphs:
-            before = self._cached_graphs
-            after = self.snapshot_graphs()
+            after = set(result.graph_names or [])
+            delta = compute_graph_delta(self._cached_graphs, after)
             self._cached_graphs = after
-            delta = compute_graph_delta(before, after)
         else:
             delta = {"created": [], "dropped": [], "current": []}
 

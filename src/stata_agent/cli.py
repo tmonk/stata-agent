@@ -165,6 +165,7 @@ def cmd_run(args: Any) -> int:
         "background": background,
         "strict": strict,
         "max_output_tokens": getattr(args, "max_output_tokens", 1000),
+        "track_graphs": True,
     })
 
     _print_run_result(result, json_output=getattr(args, "json", False))

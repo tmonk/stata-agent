@@ -140,8 +140,8 @@ def _dispatch(stata: Any, method: str, args: dict) -> dict:
             max_output_tokens=args.get("max_output_tokens", 1000),
             strict=args.get("strict", False),
             pre_allocated_log=args.get("pre_allocated_log"),
-            # track_graphs passed from RPC; defaults to True in StataClient.run()
-            track_graphs=args.get("track_graphs", True),
+            # track_graphs passed from RPC; defaults to False in StataClient.run()
+            track_graphs=args.get("track_graphs", False),
         )
         return _result_to_dict(result)
 
@@ -150,8 +150,8 @@ def _dispatch(stata: Any, method: str, args: dict) -> dict:
             args.get("path", ""),
             echo=args.get("echo", True),
             strict=args.get("strict", False),
-            # track_graphs passed from RPC; defaults to True in StataClient.run_file()
-            track_graphs=args.get("track_graphs", True),
+            # track_graphs passed from RPC; defaults to False in StataClient.run_file()
+            track_graphs=args.get("track_graphs", False),
         )
         return _result_to_dict(result)
 

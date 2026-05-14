@@ -136,6 +136,7 @@ class TestRunCommand:
             client.call.assert_called_once_with("run", {
                 "code": "display 1+1", "echo": True, "background": False,
                 "strict": False, "max_output_tokens": 1000,
+                "track_graphs": True,
             })
 
     def test_run_with_file(self, make_namespace, tmp_path):
