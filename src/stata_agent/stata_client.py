@@ -18,6 +18,8 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 from stata_agent.error_extractor import ErrorExtractor
+from pystata_x._core import execute as _execute
+
 from stata_agent.log_manager import (
     LogRotator,
     tail_file,
@@ -157,9 +159,7 @@ class StataClient:
         # Bundled execution: execute() runs the user code AND (if
         # track_graphs) internally queries graph state, avoiding a
         # separate Python dispatch round-trip for the graph dir call.
-        from pystata_x._core import execute
-
-        result = execute(code, echo=echo, capture=True, track_graphs=track_graphs)
+        result = _execute(code, echo=echo, capture=True, track_graphs=track_graphs)
         stdout, rc = result.output, result.rc
 
         if track_graphs:
@@ -476,8 +476,7 @@ class StataClient:
         Returns:
             return_code
         """
-        from pystata_x._core import execute
-        _, rc = execute(code, echo=False, capture=False)
+        _, rc = _execute(code, echo=False, capture=False)
         return rc
 
     def _stata_run(self, code: str, echo: bool = False) -> tuple[str, int]:
@@ -489,8 +488,7 @@ class StataClient:
         Returns:
             (output_text, return_code)
         """
-        from pystata_x._core import execute
-        return execute(code, echo=echo, capture=True)
+        return _execute(code, echo=echo, capture=True)
 
     def _read_log_tail(self, lines: int = 200, max_bytes: int = 131072) -> str:
         """Read tail of the Stata log file efficiently.
