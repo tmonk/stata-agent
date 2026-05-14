@@ -1,0 +1,258 @@
+{
+    "machine_info": {
+        "node": "mini.local",
+        "processor": "arm",
+        "machine": "arm64",
+        "python_compiler": "Clang 17.0.0 (clang-1700.3.19.1)",
+        "python_implementation": "CPython",
+        "python_implementation_version": "3.14.0",
+        "python_version": "3.14.0",
+        "python_build": [
+            "main",
+            "Oct  7 2025 09:34:52"
+        ],
+        "release": "25.3.0",
+        "system": "Darwin",
+        "cpu": {
+            "python_version": "3.14.0.final.0 (64 bit)",
+            "cpuinfo_version": [
+                9,
+                0,
+                0
+            ],
+            "cpuinfo_version_string": "9.0.0",
+            "arch": "ARM_8",
+            "bits": 64,
+            "count": 8,
+            "arch_string_raw": "arm64",
+            "brand_raw": "Apple M2"
+        }
+    },
+    "commit_info": {
+        "id": "f5c2b15380c9ddfc77e0539683808888fe596af4",
+        "time": "2026-05-14T11:11:30+01:00",
+        "author_time": "2026-05-14T11:11:30+01:00",
+        "dirty": true,
+        "project": "stata-agent",
+        "branch": "perf/stata-c-api-deep"
+    },
+    "benchmarks": [
+        {
+            "group": null,
+            "name": "test_graph_list",
+            "fullname": "tests/benchmarks/test_benchmark_graph_operations.py::TestGraphOperationBenchmarks::test_graph_list",
+            "params": null,
+            "param": null,
+            "extra_info": {},
+            "options": {
+                "disable_gc": false,
+                "timer": "perf_counter",
+                "min_rounds": 5,
+                "max_time": 1.0,
+                "min_time": 5e-06,
+                "warmup": 100000
+            },
+            "stats": {
+                "min": 7.9624995123595e-05,
+                "max": 0.00015854195225983858,
+                "mean": 8.134902491777826e-05,
+                "stddev": 2.948701158224697e-06,
+                "rounds": 12442,
+                "median": 8.02910071797669e-05,
+                "iqr": 6.67001586407423e-07,
+                "q1": 8.008297299966216e-05,
+                "q3": 8.074997458606958e-05,
+                "iqr_outliers": 2439,
+                "stddev_outliers": 1578,
+                "outliers": "1578;2439",
+                "ld15iqr": 7.9624995123595e-05,
+                "hd15iqr": 8.183298632502556e-05,
+                "ops": 12292.710343003226,
+                "total": 1.0121445680269971,
+                "iterations": 1
+            }
+        },
+        {
+            "group": null,
+            "name": "test_run_track_graphs_false",
+            "fullname": "tests/benchmarks/test_benchmark_graph_operations.py::TestGraphOperationBenchmarks::test_run_track_graphs_false",
+            "params": null,
+            "param": null,
+            "extra_info": {},
+            "options": {
+                "disable_gc": false,
+                "timer": "perf_counter",
+                "min_rounds": 10,
+                "max_time": 1.0,
+                "min_time": 5e-06,
+                "warmup": 100000
+            },
+            "stats": {
+                "min": 9.542040061205626e-06,
+                "max": 0.018070667050778866,
+                "mean": 1.1746248759410266e-05,
+                "stddev": 7.986468289036666e-05,
+                "rounds": 103456,
+                "median": 9.999959729611874e-06,
+                "iqr": 6.25033862888813e-07,
+                "q1": 9.874987881630659e-06,
+                "q3": 1.0500021744519472e-05,
+                "iqr_outliers": 8552,
+                "stddev_outliers": 886,
+                "outliers": "886;8552",
+                "ld15iqr": 9.542040061205626e-06,
+                "hd15iqr": 1.1457945220172405e-05,
+                "ops": 85133.56225312958,
+                "total": 1.2152199116535485,
+                "iterations": 1
+            }
+        },
+        {
+            "group": null,
+            "name": "test_run_track_graphs_true",
+            "fullname": "tests/benchmarks/test_benchmark_graph_operations.py::TestGraphOperationBenchmarks::test_run_track_graphs_true",
+            "params": null,
+            "param": null,
+            "extra_info": {},
+            "options": {
+                "disable_gc": false,
+                "timer": "perf_counter",
+                "min_rounds": 5,
+                "max_time": 1.0,
+                "min_time": 5e-06,
+                "warmup": 100000
+            },
+            "stats": {
+                "min": 9.187503019347787e-05,
+                "max": 0.0004034579615108669,
+                "mean": 9.600005407650281e-05,
+                "stddev": 1.2130893467483892e-05,
+                "rounds": 10850,
+                "median": 9.33330156840384e-05,
+                "iqr": 3.3750548027455807e-06,
+                "q1": 9.287497960031033e-05,
+                "q3": 9.62500344030559e-05,
+                "iqr_outliers": 893,
+                "stddev_outliers": 208,
+                "outliers": "208;893",
+                "ld15iqr": 9.187503019347787e-05,
+                "hd15iqr": 0.00010133301839232445,
+                "ops": 10416.660798993886,
+                "total": 1.0416005867300555,
+                "iterations": 1
+            }
+        },
+        {
+            "group": null,
+            "name": "test_execute_track_graphs_false",
+            "fullname": "tests/benchmarks/test_benchmark_graph_operations.py::TestGraphOperationBenchmarks::test_execute_track_graphs_false",
+            "params": null,
+            "param": null,
+            "extra_info": {},
+            "options": {
+                "disable_gc": false,
+                "timer": "perf_counter",
+                "min_rounds": 10,
+                "max_time": 1.0,
+                "min_time": 5e-06,
+                "warmup": 100000
+            },
+            "stats": {
+                "min": 4.2704923544079065e-06,
+                "max": 0.00030660402262583375,
+                "mean": 4.481615597851339e-06,
+                "stddev": 1.0817767662924205e-06,
+                "rounds": 115395,
+                "median": 4.4165062718093395e-06,
+                "iqr": 1.0398798622190952e-07,
+                "q1": 4.375004209578037e-06,
+                "q3": 4.478992195799947e-06,
+                "iqr_outliers": 12705,
+                "stddev_outliers": 822,
+                "outliers": "822;12705",
+                "ld15iqr": 4.2704923544079065e-06,
+                "hd15iqr": 4.64549520984292e-06,
+                "ops": 223133.8181881192,
+                "total": 0.5171560319140553,
+                "iterations": 2
+            }
+        },
+        {
+            "group": null,
+            "name": "test_execute_track_graphs_true",
+            "fullname": "tests/benchmarks/test_benchmark_graph_operations.py::TestGraphOperationBenchmarks::test_execute_track_graphs_true",
+            "params": null,
+            "param": null,
+            "extra_info": {},
+            "options": {
+                "disable_gc": false,
+                "timer": "perf_counter",
+                "min_rounds": 5,
+                "max_time": 1.0,
+                "min_time": 5e-06,
+                "warmup": 100000
+            },
+            "stats": {
+                "min": 8.55830148793757e-05,
+                "max": 0.0001705830218270421,
+                "mean": 8.770676032170364e-05,
+                "stddev": 3.0012419643877657e-06,
+                "rounds": 11600,
+                "median": 8.679198799654841e-05,
+                "iqr": 9.59029421210289e-07,
+                "q1": 8.62079905346036e-05,
+                "q3": 8.716701995581388e-05,
+                "iqr_outliers": 2463,
+                "stddev_outliers": 1583,
+                "outliers": "1583;2463",
+                "ld15iqr": 8.55830148793757e-05,
+                "hd15iqr": 8.866604184731841e-05,
+                "ops": 11401.629661522717,
+                "total": 1.0173984197317623,
+                "iterations": 1
+            }
+        },
+        {
+            "group": null,
+            "name": "test_graph_export",
+            "fullname": "tests/benchmarks/test_benchmark_graph_operations.py::TestGraphOperationBenchmarks::test_graph_export",
+            "params": null,
+            "param": null,
+            "extra_info": {},
+            "options": {
+                "disable_gc": false,
+                "timer": "perf_counter",
+                "min_rounds": 5,
+                "max_time": 1.0,
+                "min_time": 5e-06,
+                "warmup": 100000
+            },
+            "stats": {
+                "min": 0.0027188750100322068,
+                "max": 0.0031508749816566706,
+                "mean": 0.002785417585044108,
+                "stddev": 6.467170336790899e-05,
+                "rounds": 372,
+                "median": 0.0027591880061663687,
+                "iqr": 4.84375050291419e-05,
+                "q1": 0.0027465835155453533,
+                "q3": 0.002795021020574495,
+                "iqr_outliers": 58,
+                "stddev_outliers": 65,
+                "outliers": "65;58",
+                "ld15iqr": 0.0027188750100322068,
+                "hd15iqr": 0.0028677500085905194,
+                "ops": 359.0125966639091,
+                "total": 1.0361753416364081,
+                "iterations": 1
+            }
+        }
+    ],
+    "datetime": "2026-05-14T10:59:55.455894+00:00",
+    "version": "5.2.3",
+    "meta": {
+        "timestamp": "20260514_115955",
+        "git_commit": "f5c2b15",
+        "project_root": "/Users/tom/projects/stata-agent"
+    }
+}
