@@ -26,6 +26,14 @@ INVALID_SYNTAX_RE = re.compile(r"invalid syntax$", re.IGNORECASE)
 NO_OBSERVATIONS_RE = re.compile(r"no observations", re.IGNORECASE)
 BREAK_ERROR_RE = re.compile(r"^--Break--$", re.IGNORECASE)
 
+# rc code for each native error pattern
+PATTERN_RC: dict[re.Pattern, int] = {
+    NOT_FOUND_RE: 111,
+    INVALID_SYNTAX_RE: 198,
+    NO_OBSERVATIONS_RE: 2000,
+    ASSERTION_RE: 9,
+}
+
 TAIL_SCAN_BYTES = 32768
 
 
@@ -253,6 +261,20 @@ class ErrorExtractor:
                     marker_found=False, source=source,
                 )
 
+            # Native error message without r(NNN); (e.g. capture noisily)
+            # The error message is printed but r(code); is suppressed.
+            for pattern, rc in PATTERN_RC.items():
+                if pattern.search(line):
+                    context_start = max(0, i - 10)
+                    ctx = "\n".join(lines[context_start : i + 1])
+                    return StructuredError(
+                        rc=rc,
+                        message=line,
+                        context=ctx,
+                        marker_found=False,
+                        source="native_msg",
+                    )
+
         return None
 
     def _check_error_line(
@@ -288,5 +310,13 @@ class ErrorExtractor:
                 rc=1, message="--Break--",
                 context=line, marker_found=False, source="break",
             )
+
+        # Native error messages (e.g. capture noisily suppresses r(code);)
+        for pattern, rc in PATTERN_RC.items():
+            if pattern.search(line):
+                return StructuredError(
+                    rc=rc, message=line,
+                    context=line, marker_found=False, source="native_msg",
+                )
 
         return None
