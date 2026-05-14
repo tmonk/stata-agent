@@ -66,5 +66,9 @@ filterwarnings = ["ignore::DeprecationWarning"]
 
 [dependency-groups]
 dev = [
+    "cython>=3.2.4",
+    "meson>=1.11.1",
+    "meson-python>=0.19.0",
     "pytest-asyncio>=0.24",
+    "pytest-benchmark>=5.1.0",
 ]
