@@ -1,6 +1,6 @@
 # Performance Optimizations — Complete Record
 
-> Last updated: 2026-05-14
+> Last updated: 2026-05-15
 
 This document records every performance optimization considered, benchmarked,
 and (if adopted) implemented across the **pystata-x** and **stata-agent**
@@ -31,6 +31,8 @@ projects. Its purpose is to:
 - [Optimization 8: Bundle single-line + track_graphs + echo=False](#optimization-8-bundle-single-line--track_graphs--echofalse-via-temp-file)
 - [Optimization 9: Cache showcommand state](#optimization-9-cache-showcommand-state)
 - [Optimization 10: Pre-encode strings and early newline detection](#optimization-10-pre-encode-fixed-strings-and-early-newline-detection)
+- [Optimization 11: Vectorized pyarrow export via Data.toNPArray()](#optimization-11-vectorized-pyarrow-export-via-datatonparray)
+  - [Before/after breakdown](#beforeafter-breakdown)
 - [Rejected Approaches](#rejected-approaches)
   - [A. Cython extension to read Stata internals](#a-cython-extension-to-read-stata-internals)
   - [B. Direct ctypes into libstata internal symbols](#b-direct-ctypes-into-libstata-internal-symbols)
@@ -349,6 +351,84 @@ After `init()` completes, run one `snapshot_graphs()` call to pre-populate
 ### Result
 
 First tracked run behaves correctly — no false positives.
+
+---
+
+## Optimization 11: Vectorized pyarrow export via Data.toNPArray()
+
+**Type**: Adopted ✓  
+**Location**: `stata_agent/stata_client.py` (`inspect_get()`)  
+**Commit**: Current (post-baseline)
+
+### Problem
+
+`inspect_get(format="arrow")` read Stata dataset variables **cell-by-cell**
+using SFI `Data.get(idx, obs_idx)` in a nested Python loop:
+
+```python
+for name in selected:
+    idx = Data.getVarIndex(name)
+    col = []
+    for obs_idx in range(obs_start, obs_end):
+        val = Data.get(idx, obs_idx)   # 1 Python→C call per cell
+        col.append(val)
+    arrays.append(pa.array(col))
+```
+
+Each `Data.get()` call crosses the Python→C boundary (~1 µs). For a 1M×19
+dataset that is **19 million SFI calls** totalling **~18.8 seconds**.
+
+### Solution
+
+Replace the cell-by-cell loop with a single vectorized call per column:
+
+```python
+for name in selected:
+    idx = Data.getVarIndex(name)
+    arr = Data.toNPArray(idx)           # 1 call → numpy array (entire column)
+    if obs_start > 0 or obs_end < obs_total:
+        arr = arr[obs_start:obs_end]
+    arrays[name] = pa.array(arr)
+```
+
+`Data.toNPArray()` reads the entire Stata column into a contiguous numpy
+array in a single SFI call. The resulting numpy array is then converted to
+a pyarrow array (zero-copy for compatible numeric types).
+
+For 19 columns this is **19 SFI calls** instead of 19 million — a
+**million-fold reduction** in Python→C cross-boundary calls.
+
+### Result
+
+Large dataset (1,000,000 obs × 19 vars):
+
+| Metric | Before (cell-by-cell) | After (toNPArray) | Improvement |
+|---|---|---|---|
+| Column build time | 18.83 s | 0.69 s | **27×** |
+| IPC write time | 0.15 s | 0.15 s | Unchanged |
+| **Total export time** | **18.85 s** | **0.75 s** | **25×** |
+| Schema + table build | 0.17 ms | 0.17 ms | Unchanged |
+| Per-cell overhead | ~1.0 µs/cell | ~0.04 µs/cell | **25×** |
+
+Small dataset (74 obs × 12 vars):
+
+| Metric | Before | After | Improvement |
+|---|---|---|---|
+| Column build time | 0.77 s | 0.002 s | **385×** |
+| **Total export time** | **1.16 ms** | **0.28 ms** | **4.2×** |
+
+### Correctness
+
+Verified via round-trip tests:
+- Small dataset (sysuse auto): 74 rows × 12 cols — spot-checked 10 rows
+- Missing values: Stata `.` sentinels are preserved faithfully
+- Large dataset (1M × 19): checked first, middle, last row for 3 columns
+- Arrow IPC file reads back identically via `pyarrow.ipc.open_file()`
+
+### Benchmark results
+
+Saved to `benchmarks/history/benchmark_arrow_20260515_143920_25a58c6.json`
+(phase: `optimized_v1_toNPArray`, 26.5× speedup on DirectCall_large).
 
 ---
 

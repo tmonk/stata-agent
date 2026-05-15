@@ -309,9 +309,10 @@ class StataClient:
         elif format == "arrow":
             try:
                 import pyarrow as pa
+                import numpy as np
                 from sfi import Data
 
-                # Build pyarrow table from SFI
+                # Build pyarrow table from SFI using vectorized column reads
                 var_count = Data.getVarCount()
                 var_names = [Data.getVarName(i) for i in range(var_count)]
 
@@ -332,21 +333,17 @@ class StataClient:
                     obs_start = 0
                     obs_end = obs_total
 
-                # Build columns
-                arrays = []
+                # Build columns via vectorized toNPArray (single SFI call per column)
+                arrays = {}
                 for name in selected:
                     idx = Data.getVarIndex(name)
-                    col = []
-                    for obs_idx in range(obs_start, obs_end):
-                        val = Data.get(idx, obs_idx)
-                        col.append(val)
-                    arrays.append(pa.array(col))
+                    arr = Data.toNPArray(idx)
+                    if obs_start > 0 or obs_end < obs_total:
+                        arr = arr[obs_start:obs_end]
+                    arrays[name] = pa.array(arr)
 
-                schema = pa.schema([
-                    (name, pa.float64() if arrays[i].type == pa.null() else arrays[i].type)
-                    for i, name in enumerate(selected)
-                ])
-                table = pa.Table.from_arrays(arrays, schema=schema)
+                # Create table with column names preserved
+                table = pa.table(arrays)
 
                 with pa.OSFile(str(out_path), "wb") as sink:
                     with pa.ipc.new_file(sink, table.schema) as writer:
