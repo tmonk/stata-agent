@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "stata-agent"
-version = "0.1.0"
+version = "0.1.2"
 description = "CLI-native Stata integration for AI agents. Run code, inspect data, retrieve results, export graphs, and test do-files."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -86,7 +86,7 @@ package = true
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "0.1.2"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]

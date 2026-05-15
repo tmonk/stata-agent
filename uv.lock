@@ -1393,7 +1393,7 @@ wheels = [
 
 [[package]]
 name = "stata-agent"
-version = "1.0.1"
+version = "0.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "pyarrow" },
