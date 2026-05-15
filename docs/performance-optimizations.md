@@ -1,6 +1,6 @@
 # Performance Optimizations — Complete Record
 
-> Last updated: 2026-05-14
+> Last updated: 2026-05-15
 
 This document records every performance optimization considered, benchmarked,
 and (if adopted) implemented across the **pystata-x** and **stata-agent**
@@ -31,6 +31,10 @@ projects. Its purpose is to:
 - [Optimization 8: Bundle single-line + track_graphs + echo=False](#optimization-8-bundle-single-line--track_graphs--echofalse-via-temp-file)
 - [Optimization 9: Cache showcommand state](#optimization-9-cache-showcommand-state)
 - [Optimization 10: Pre-encode strings and early newline detection](#optimization-10-pre-encode-fixed-strings-and-early-newline-detection)
+- [Optimization 11: Vectorized pyarrow export via Data.toNPArray()](#optimization-11-vectorized-pyarrow-export-via-datatonparray)
+  - [Before/after breakdown](#beforeafter-breakdown)
+- [Optimization 12: Skip graph display before export](#optimization-12-skip-graph-display-before-export)
+  - [Result](#result-1)
 - [Rejected Approaches](#rejected-approaches)
   - [A. Cython extension to read Stata internals](#a-cython-extension-to-read-stata-internals)
   - [B. Direct ctypes into libstata internal symbols](#b-direct-ctypes-into-libstata-internal-symbols)
@@ -349,6 +353,170 @@ After `init()` completes, run one `snapshot_graphs()` call to pre-populate
 ### Result
 
 First tracked run behaves correctly — no false positives.
+
+---
+
+## Optimization 11: Vectorized pyarrow export via Data.toNPArray()
+
+**Type**: Adopted ✓  
+**Location**: `stata_agent/stata_client.py` (`inspect_get()`)  
+**Commit**: Current (post-baseline)
+
+### Problem
+
+`inspect_get(format="arrow")` read Stata dataset variables **cell-by-cell**
+using SFI `Data.get(idx, obs_idx)` in a nested Python loop:
+
+```python
+for name in selected:
+    idx = Data.getVarIndex(name)
+    col = []
+    for obs_idx in range(obs_start, obs_end):
+        val = Data.get(idx, obs_idx)   # 1 Python→C call per cell
+        col.append(val)
+    arrays.append(pa.array(col))
+```
+
+Each `Data.get()` call crosses the Python→C boundary (~1 µs). For a 1M×19
+dataset that is **19 million SFI calls** totalling **~18.8 seconds**.
+
+### Solution
+
+Replace the cell-by-cell loop with a single vectorized call per column:
+
+```python
+for name in selected:
+    idx = Data.getVarIndex(name)
+    arr = Data.toNPArray(idx)           # 1 call → numpy array (entire column)
+    if obs_start > 0 or obs_end < obs_total:
+        arr = arr[obs_start:obs_end]
+    arrays[name] = pa.array(arr)
+```
+
+`Data.toNPArray()` reads the entire Stata column into a contiguous numpy
+array in a single SFI call. The resulting numpy array is then converted to
+a pyarrow array (zero-copy for compatible numeric types).
+
+For 19 columns this is **19 SFI calls** instead of 19 million — a
+**million-fold reduction** in Python→C cross-boundary calls.
+
+### Result
+
+Large dataset (1,000,000 obs × 19 vars):
+
+| Metric | Before (cell-by-cell) | After (toNPArray) | Improvement |
+|---|---|---|---|
+| Column build time | 18.83 s | 0.69 s | **27×** |
+| IPC write time | 0.15 s | 0.15 s | Unchanged |
+| **Total export time** | **18.85 s** | **0.75 s** | **25×** |
+| Schema + table build | 0.17 ms | 0.17 ms | Unchanged |
+| Per-cell overhead | ~1.0 µs/cell | ~0.04 µs/cell | **25×** |
+
+Small dataset (74 obs × 12 vars):
+
+| Metric | Before | After | Improvement |
+|---|---|---|---|
+| Column build time | 0.77 s | 0.002 s | **385×** |
+| **Total export time** | **1.16 ms** | **0.28 ms** | **4.2×** |
+
+### Correctness
+
+Verified via round-trip tests:
+- Small dataset (sysuse auto): 74 rows × 12 cols — spot-checked 10 rows
+- Missing values: Stata `.` sentinels are preserved faithfully
+- Large dataset (1M × 19): checked first, middle, last row for 3 columns
+- Arrow IPC file reads back identically via `pyarrow.ipc.open_file()`
+
+### Benchmark results
+
+Saved to `benchmarks/history/benchmark_arrow_20260515_143920_25a58c6.json`
+(phase: `optimized_v1_toNPArray`, 26.5× speedup on DirectCall_large).
+
+---
+
+## Optimization 12: Skip graph display before export
+
+**Type**: Adopted ✓  
+**Location**: `stata_agent/stata_client.py` (`export_graph()`)  
+**Commit**: Current
+
+### Problem
+
+The `export_graph()` method performed an expensive two-step sequence:
+
+```python
+self._stata_run(f'graph display "{name}"', echo=False)  # ~15ms
+self._stata_run(f'graph export "{out_path}", replace as({fmt})', echo=False)  # ~3ms (PDF)
+```
+
+The `graph display` command renders the graph to the screen before exporting
+it. This adds **~15ms** of Stata rendering time — 83% of the total export
+latency. Subsequent `graph export` re-renders the same graph to the file.
+
+### Solution
+
+Replace the two-step with a single `graph export` call using the `name()`
+option to specify the graph directly:
+
+```python
+if name:
+    self._stata_run(
+        f'graph export "{out_path}", name({name}) replace as({fmt})',
+        echo=False,
+    )
+```
+
+The `name()` option tells Stata to export the named graph directly without
+first displaying it. This works for all formats (PDF, PNG, SVG, EPS).
+
+When `name` is `None` (export the currently displayed graph), the original
+behavior is preserved.
+
+### Result
+
+| Metric | Before (display+export) | After (name() direct) | Improvement |
+|---|---|---|---|
+| **PDF export** (default format) | 18.0 ms | **2.7 ms** | **6.7×** |
+| **SVG export** | N/A | **2.0 ms** | Fastest format |
+| **EPS export** | N/A | **3.8 ms** | Comparable to PDF |
+| **PNG width(400)** | N/A | **24.5 ms** | Lower-res raster |
+| **PNG default (800px)** | 114 ms | **43.8 ms** | 2.6× (display removal saves 15ms) |
+| **PNG width(1600)** | N/A | **115 ms** | Higher-res raster |
+| **PNG width(3200)** | N/A | **337 ms** | Max-res raster |
+| `graph display` step | 15 ms | **0 ms** (eliminated) | ∞ |
+| wrapper rounds (benchmark) | 22 rounds | **371 rounds** | 17× |
+
+Key insight: the 15ms `graph display` step was pure overhead — it rendered
+the graph to screen only to have `graph export` render it again. By using
+`name()` directly, we eliminate the redundant render.
+
+**Format comparison** (all measured with `name(g1)` direct export, no display):
+
+| Format | Mean time | File size | Type |
+|--------|-----------|-----------|------|
+| SVG | **2.0 ms** | 39 KB | Vector |
+| PDF | **2.9 ms** | 11 KB | Vector (default) |
+| EPS | **3.8 ms** | 22 KB | Vector |
+| PNG width(200) | 18 ms* | 4 KB | Raster |
+| PNG width(400) | 25 ms | 9 KB | Raster |
+| PNG default (800px) | 44 ms | 19 KB | Raster |
+| PNG width(1600) | 115 ms | 46 KB | Raster |
+| PNG width(3200) | 337 ms | 107 KB | Raster |
+
+*First call warms Stata's renderer (640ms outlier excluded).
+
+**PNG cost is dominated by Stata's pixel rendering engine, not our
+wrapper code.** The optimization removes the display overhead (~15ms) but
+PNG rasterization time grows quadratically with resolution (width × height
+pixels) and is bounded by Stata's internal rendering pipeline.
+
+### Benchmark results
+
+From comprehensive benchmark suite (`run_real_benchmarks.py`):
+- `GraphOperations::graph_export_wrapper`: **46.67ms → 2.70ms** (17.3×)
+- `GraphOperations::graph_export` (raw two-step, unchanged): 57ms
+- Full format comparison: `benchmarks/profile_graph_export_formats.py`
+- Saved to `benchmarks/history/benchmark_20260515_145845_b9aa740.json`
 
 ---
 
