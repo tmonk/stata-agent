@@ -39,7 +39,7 @@ classifiers = [
 dependencies = [
     "pyarrow>=24.0.0",
     "pydantic>=2.13.4",
-    "pystata-x>=0.2.0",
+    "pystata-x>=0.1.0",
 ]
 
 [project.urls]
