@@ -1,0 +1,100 @@
+name: Build & Test
+
+on:
+  push:
+    branches:
+      - '*'
+      - '**'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (py${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history including tags
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "**/uv.lock"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          uv sync --python ${{ matrix.python-version }} --all-extras --dev
+        timeout-minutes: 10
+
+      - name: Run tests that don't require Stata
+        run: |
+          uv run pytest -v -m "not requires_stata"
+        timeout-minutes: 15
+
+      - name: Build package
+        run: |
+          uv build
+        timeout-minutes: 5
+
+      - name: Test installation in clean environment
+        shell: bash
+        run: |
+          # Create fresh venv using the uv-managed Python
+          uv run python -m venv test_venv
+
+          # Activate and install
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            source test_venv/Scripts/activate
+          else
+            source test_venv/bin/activate
+          fi
+
+          # Install built wheel
+          pip install dist/*.whl
+
+          # Test critical imports and version
+          python -c "
+          import importlib.resources
+          import stata_agent
+          print(f'[OK] Import successful (v{stata_agent.__version__})')
+          assert stata_agent.__version__ == '0.1.0', f'Version mismatch: {stata_agent.__version__}'
+          # Verify plugin/skills are bundled
+          p = importlib.resources.files('stata_agent') / 'plugin'
+          print(f'[OK] Plugin dir: {p}')
+          assert p.is_dir(), 'Plugin directory missing from wheel'
+          skills = list((p / 'skills').iterdir())
+          print(f'[OK] Skills: {[s.name for s in skills]}')
+          "
+
+          # Verify entry point
+          which stata-agent || where stata-agent
+          echo "[OK] Entry point installed"
+        timeout-minutes: 10
+
+      - name: Upload build artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            dist/
+            *.log
+          retention-days: 7
