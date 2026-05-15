@@ -138,6 +138,11 @@ _CANNED: dict[str, dict[str, Any]] = {
     ),
 }
 
+
+def _load_canned_responses() -> dict[str, dict[str, Any]]:
+    """Return the current canned response table."""
+    return _CANNED
+
 # State machine for mock sessions
 _session_state: dict[str, dict[str, Any]] = {}
 

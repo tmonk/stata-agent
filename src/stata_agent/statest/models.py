@@ -14,6 +14,7 @@ class AssertionFailure(BaseModel):
     log_excerpt: Optional[str] = None
 
 class TestResult(BaseModel):
+    __test__ = False
     test_path: str
     success: bool
     rc: int
@@ -25,6 +26,7 @@ class TestResult(BaseModel):
     teardown_rc: Optional[int] = None
 
 class TestSuiteSummary(BaseModel):
+    __test__ = False
     path: str
     total_tests: int
     passed: int

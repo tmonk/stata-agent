@@ -72,7 +72,7 @@ class TestSearchInLog:
         p = tmp_path / "search.log"
         p.write_text("\n".join(lines) + "\n")
 
-        result = search_in_log(p, "r\(111\)")
+        result = search_in_log(p, r"r\(111\)")
         assert len(result["matches"]) == 1
         assert "r(111)" in result["matches"][0]
 
