@@ -247,7 +247,13 @@ class TestDiscoverBinary:
         monkeypatch.delenv("STATA_AGENT_PATH", raising=False)
 
         result = _discover_stata_agent_binary()
-        assert result == str(fake_bin)
+        # On Windows, shutil.which may return .EXE (uppercase) even when
+        # we created the file with lowercase .exe — compare case-insensitively
+        if sys.platform == "win32":
+            assert result is not None
+            assert result.lower() == str(fake_bin).lower()
+        else:
+            assert result == str(fake_bin)
 
     def test_returns_none_when_not_found(self, tmp_path, monkeypatch):
         from stata_agent.skills_installer import _discover_stata_agent_binary

@@ -26,6 +26,12 @@ def _make_response(ok: bool, result=None, error="err", error_code="TEST_ERROR"):
     return (json.dumps(payload) + "\n").encode()
 
 
+# On Windows Python < 3.12, socket.AF_UNIX doesn't exist.
+# Provide a dummy value so the Unix socket code path is reachable in tests.
+if not hasattr(socket, "AF_UNIX"):
+    socket.AF_UNIX = 1
+
+
 class TestRpcClientEdge:
     """Edge case tests for RpcClient."""
 

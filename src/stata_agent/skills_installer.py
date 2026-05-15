@@ -498,7 +498,6 @@ def check_and_upgrade(force: bool = False) -> None:
         return
 
     # Try to acquire lock; skip upgrade if another process holds it
-    import fcntl
     lock_fd = None
     try:
         lock_fd = open(str(lock_file), "w")
@@ -506,6 +505,7 @@ def check_and_upgrade(force: bool = False) -> None:
             import msvcrt
             msvcrt.locking(lock_fd.fileno(), msvcrt.LK_NBLCK, 1)
         else:
+            import fcntl
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except (OSError, IOError):
         return  # Another process is upgrading; continue with current version

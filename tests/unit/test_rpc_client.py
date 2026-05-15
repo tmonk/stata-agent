@@ -17,15 +17,18 @@ from stata_agent.rpc_client import RpcClient, RpcError, _get_socket_path, _get_m
 class TestSocketPaths:
     def test_socket_path_default(self):
         path = _get_socket_path("default")
-        assert str(path).endswith("/default.sock")
+        assert path.suffix == ".sock"
+        assert path.name == "default.sock"
 
     def test_socket_path_custom(self):
         path = _get_socket_path("my_session")
-        assert str(path).endswith("/my_session.sock")
+        assert path.suffix == ".sock"
+        assert path.name == "my_session.sock"
 
     def test_meta_path(self):
         path = _get_meta_path("default")
-        assert str(path).endswith("/default.json")
+        assert path.suffix == ".json"
+        assert path.name == "default.json"
 
 
 class TestRpcClient:
@@ -71,6 +74,11 @@ class TestConnect:
 
     def test_connect_unix_socket(self, tmp_path):
         import stata_agent.rpc_client as rpc
+
+        # On Windows Python < 3.12, socket.AF_UNIX doesn't exist.
+        # Set a fake value so the code path can be tested.
+        if not hasattr(socket, "AF_UNIX"):
+            socket.AF_UNIX = 1
 
         orig = rpc.SESSION_DIR
         try:
@@ -134,6 +142,9 @@ class TestCall:
     def test_call_success(self, tmp_path):
         import stata_agent.rpc_client as rpc
 
+        if not hasattr(socket, "AF_UNIX"):
+            socket.AF_UNIX = 1
+
         orig = rpc.SESSION_DIR
         try:
             rpc.SESSION_DIR = tmp_path
@@ -155,6 +166,9 @@ class TestCall:
     def test_call_raises_rpc_error_on_failure(self, tmp_path):
         import stata_agent.rpc_client as rpc
 
+        if not hasattr(socket, "AF_UNIX"):
+            socket.AF_UNIX = 1
+
         orig = rpc.SESSION_DIR
         try:
             rpc.SESSION_DIR = tmp_path
@@ -174,6 +188,9 @@ class TestCall:
 
     def test_call_raises_on_connection_closed(self, tmp_path):
         import stata_agent.rpc_client as rpc
+
+        if not hasattr(socket, "AF_UNIX"):
+            socket.AF_UNIX = 1
 
         orig = rpc.SESSION_DIR
         try:
@@ -196,6 +213,9 @@ class TestIsAlive:
 
     def test_is_alive_true(self, tmp_path):
         import stata_agent.rpc_client as rpc
+
+        if not hasattr(socket, "AF_UNIX"):
+            socket.AF_UNIX = 1
 
         orig = rpc.SESSION_DIR
         try:

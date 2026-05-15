@@ -15,6 +15,18 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
+def _state_dir_for_platform(tmp_path: Path) -> Path:
+    """Return the platform-appropriate state dir under tmp_path.
+
+    On Unix, _get_state_dir returns XDG_STATE_HOME/stata-agent.
+    On Windows, _get_state_dir returns LOCALAPPDATA/stata-agent/state.
+    """
+    base = tmp_path / ".local" / "state"
+    if sys.platform == "win32":
+        return base / "stata-agent" / "state"
+    return base / "stata-agent"
+
+
 class TestDoctorResult:
     """Tests for DoctorResult dataclass."""
 
@@ -140,7 +152,7 @@ class TestDoctorFunction:
         """doctor() reads update_state.json."""
         from scripts.install.verify import doctor
 
-        state_dir = tmp_path / ".local" / "state" / "stata-agent"
+        state_dir = _state_dir_for_platform(tmp_path)
         state_dir.mkdir(parents=True)
         state_file = state_dir / "update_state.json"
         state_file.write_text(json.dumps({
@@ -167,7 +179,7 @@ class TestDoctorFunction:
         """doctor() detects denylist_active in update_state.json."""
         from scripts.install.verify import doctor
 
-        state_dir = tmp_path / ".local" / "state" / "stata-agent"
+        state_dir = _state_dir_for_platform(tmp_path)
         state_dir.mkdir(parents=True)
         state_file = state_dir / "update_state.json"
         state_file.write_text(json.dumps({

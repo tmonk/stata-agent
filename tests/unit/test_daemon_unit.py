@@ -193,19 +193,20 @@ class TestDispatch:
         daemon = daemon_with_mock_sessions
         daemon._background_tasks = {}
 
+        expected_log_path = str(Path("/tmp/test_background.log"))
         with patch("stata_agent.log_manager.LogRotator") as MockRotator:
             instance = MockRotator.return_value
-            instance.next_path.return_value = Path("/tmp/test_background.log")
+            instance.next_path.return_value = Path(expected_log_path)
 
             result = await daemon.dispatch("run", {"background": True, "cmd": "long job"})
 
         assert "task_id" in result
         assert result["status"] == "running"
-        assert result["log_path"] == "/tmp/test_background.log"
+        assert result["log_path"] == expected_log_path
         assert len(daemon._background_tasks) == 1
         task_id = result["task_id"]
         assert daemon._background_tasks[task_id]["status"] == "running"
-        assert daemon._background_tasks[task_id]["log_path"] == "/tmp/test_background.log"
+        assert daemon._background_tasks[task_id]["log_path"] == expected_log_path
 
     async def test_dispatch_task_status_known_task(self, daemon_with_mock_sessions):
         daemon = daemon_with_mock_sessions
