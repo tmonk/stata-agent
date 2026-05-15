@@ -18,6 +18,7 @@ INSTALL_SH = Path(__file__).resolve().parents[2] / "install.sh"
 MOCK_UV_DIR = Path(__file__).resolve().parent / "helpers"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="install.sh requires bash")
 class TestInstallShDryRun:
     """Tests for install.sh --dry-run behavior."""
 
@@ -151,6 +152,7 @@ class TestInstallShDryRun:
         assert result.returncode != 0
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="install.sh requires bash")
 class TestInstallShPathDiscovery:
     """Tests for dynamic PATH discovery."""
 

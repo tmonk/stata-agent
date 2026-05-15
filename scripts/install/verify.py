@@ -323,7 +323,7 @@ def doctor(plugin_dir: Optional[str] = None) -> DoctorResult:
     result.telemetry_enabled = True  # Default; can be configured later
     try:
         probe = subprocess.run(
-            ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
+            ["curl", "-s", "-o", os.devnull, "-w", "%{http_code}",
              "https://stata-agent-install.tdmonk.com/health"],
             capture_output=True, text=True, timeout=5,
         )

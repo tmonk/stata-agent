@@ -51,7 +51,18 @@ def _is_stata_available() -> bool:
 
 
 def pytest_collection_modifyitems(config, items):
-    """Auto-skip requires_stata tests when Stata is unavailable."""
+    """Auto-skip tests based on platform and Stata availability."""
+    # Skip integration tests that rely on Unix daemon when on Windows
+    if sys.platform == "win32":
+        win_skip_marker = pytest.mark.skip(
+            reason="Test requires Unix domain socket daemon (not available on Windows)"
+        )
+        for item in items:
+            fpath = item.fspath.strpath
+            if ("/test_mock_daemon.py" in fpath or "/test_statest_runner_mock.py" in fpath):
+                item.add_marker(win_skip_marker)
+
+    # Skip requires_stata tests when Stata is unavailable
     if _is_stata_available():
         return  # Don't skip — real Stata is available
 

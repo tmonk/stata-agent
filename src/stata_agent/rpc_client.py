@@ -38,9 +38,10 @@ class RpcClient:
 
     def _connect(self) -> socket.socket:
         """Connect to the daemon socket."""
-        # Try Unix socket first
+        # Try Unix socket first (not available on all Windows Python versions)
         sock_path = _get_socket_path(self.session)
-        if sock_path.exists():
+        unix_available = hasattr(socket, "AF_UNIX")
+        if sock_path.exists() and unix_available:
             s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             s.settimeout(self.timeout)
             s.connect(str(sock_path))

@@ -72,9 +72,11 @@ class TestDoctorFunction:
         # Create a fake stata-agent binary
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
-        fake_bin = bin_dir / "stata-agent"
+        bin_name = "stata-agent.exe" if sys.platform == "win32" else "stata-agent"
+        fake_bin = bin_dir / bin_name
         fake_bin.write_text("#!/bin/sh\necho 'stata_agent 1.0.0'")
-        fake_bin.chmod(0o755)
+        if sys.platform != "win32":
+            fake_bin.chmod(0o755)
 
         monkeypatch.setenv("PATH", str(bin_dir))
         monkeypatch.setenv("HOME", str(tmp_path))
@@ -151,6 +153,9 @@ class TestDoctorFunction:
         monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / ".local" / "state"))
         monkeypatch.setenv("HOME", str(tmp_path))
         monkeypatch.setenv("PATH", "/usr/bin")
+        # On Windows, _get_state_dir uses LOCALAPPDATA instead of XDG_STATE_HOME
+        if sys.platform == "win32":
+            monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / ".local" / "state"))
 
         with patch("subprocess.run", return_value=MagicMock(stdout="", stderr="", returncode=0)):
             with patch("shutil.which", return_value="/fake/stata-agent"):
@@ -173,6 +178,9 @@ class TestDoctorFunction:
         monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / ".local" / "state"))
         monkeypatch.setenv("HOME", str(tmp_path))
         monkeypatch.setenv("PATH", "/usr/bin")
+        # On Windows, _get_state_dir uses LOCALAPPDATA instead of XDG_STATE_HOME
+        if sys.platform == "win32":
+            monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / ".local" / "state"))
 
         with patch("subprocess.run", return_value=MagicMock(stdout="", stderr="", returncode=0)):
             with patch("shutil.which", return_value="/fake/stata-agent"):
@@ -184,19 +192,21 @@ class TestDoctorFunction:
         """doctor() detects multiple binaries on PATH."""
         from scripts.install.verify import doctor
 
+        bin_name = "stata-agent.exe" if sys.platform == "win32" else "stata-agent"
         bin1 = tmp_path / "bin1"
         bin2 = tmp_path / "bin2"
         bin1.mkdir(); bin2.mkdir()
-        (bin1 / "stata-agent").write_text("")
-        (bin2 / "stata-agent").write_text("")
-        (bin1 / "stata-agent").chmod(0o755)
-        (bin2 / "stata-agent").chmod(0o755)
+        (bin1 / bin_name).write_text("")
+        (bin2 / bin_name).write_text("")
+        if sys.platform != "win32":
+            (bin1 / bin_name).chmod(0o755)
+            (bin2 / bin_name).chmod(0o755)
 
-        monkeypatch.setenv("PATH", f"{bin1}:{bin2}")
+        monkeypatch.setenv("PATH", os.pathsep.join([str(bin1), str(bin2)]))
         monkeypatch.setenv("HOME", str(tmp_path))
 
         with patch("subprocess.run", return_value=MagicMock(stdout="", stderr="", returncode=0)):
-            with patch("shutil.which", return_value=str(bin1 / "stata-agent")):
+            with patch("shutil.which", return_value=str(bin1 / bin_name)):
                 result = doctor()
                 assert result.conflicting_binary is not None
 

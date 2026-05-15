@@ -23,6 +23,9 @@ class TestCheckAndUpgrade:
         state_dir.mkdir(parents=True)
         monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / ".local" / "state"))
         monkeypatch.setenv("HOME", str(tmp_path))
+        # On Windows, _get_state_dir uses LOCALAPPDATA instead of XDG_STATE_HOME
+        if sys.platform == "win32":
+            monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / ".local" / "state"))
         monkeypatch.delenv("STATA_AGENT_NO_AUTO_UPGRADE", raising=False)
         return state_dir
 
@@ -234,9 +237,11 @@ class TestDiscoverBinary:
 
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
-        fake_bin = bin_dir / "stata-agent"
+        bin_name = "stata-agent.exe" if sys.platform == "win32" else "stata-agent"
+        fake_bin = bin_dir / bin_name
         fake_bin.write_text("")
-        fake_bin.chmod(0o755)
+        if sys.platform != "win32":
+            fake_bin.chmod(0o755)
 
         monkeypatch.setenv("PATH", str(bin_dir))
         monkeypatch.delenv("STATA_AGENT_PATH", raising=False)
