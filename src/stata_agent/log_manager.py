@@ -80,7 +80,7 @@ class LogRotator:
             if f.name.startswith(self.session_name) and f.suffix == ".log":
                 try:
                     mtime = datetime.fromtimestamp(f.stat().st_mtime)
-                    if mtime < cutoff:
+                    if mtime <= cutoff:
                         f.unlink()
                         removed += 1
                 except OSError:
