@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sys
 import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -188,7 +187,6 @@ class TestDispatch:
         assert daemon._call_worker.call_args[0][1] == "run"
         assert daemon._call_worker.call_args[0][2] == {"cmd": "describe"}
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="asyncio background tasks behave differently on Windows")
     async def test_dispatch_run_background_returns_task_id_immediately(
         self, daemon_with_mock_sessions,
     ):

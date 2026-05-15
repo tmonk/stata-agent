@@ -33,14 +33,16 @@ def mock_daemon():
     t = threading.Thread(target=_start, daemon=True)
     t.start()
 
-    # Wait for socket to appear (up to 10 seconds)
+    # Wait for daemon to appear (up to 10 seconds)
+    # On Unix, a .sock file is created; on Windows, a TCP server writes a .json meta file
     sock_path = Path.home() / ".cache" / "stata-agent" / "sessions" / "integration_test.sock"
+    meta_path = Path.home() / ".cache" / "stata-agent" / "sessions" / "integration_test.json"
     for _ in range(100):
-        if sock_path.exists():
+        if sock_path.exists() or meta_path.exists():
             break
         time.sleep(0.1)
 
-    if not sock_path.exists():
+    if not sock_path.exists() and not meta_path.exists():
         pytest.fail("Mock daemon failed to start within 10 seconds")
 
     time.sleep(0.3)
@@ -54,7 +56,6 @@ def mock_daemon():
     except Exception:
         pass
     sock_path.unlink(missing_ok=True)
-    meta_path = Path.home() / ".cache" / "stata-agent" / "sessions" / "integration_test.json"
     meta_path.unlink(missing_ok=True)
 
 

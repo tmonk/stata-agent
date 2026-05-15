@@ -29,12 +29,13 @@ def mock_daemon():
     t.start()
 
     sock_path = Path.home() / ".cache" / "stata-agent" / "sessions" / "statest_test.sock"
+    meta_path = Path.home() / ".cache" / "stata-agent" / "sessions" / "statest_test.json"
     for _ in range(100):
-        if sock_path.exists():
+        if sock_path.exists() or meta_path.exists():
             break
         time.sleep(0.1)
 
-    if not sock_path.exists():
+    if not sock_path.exists() and not meta_path.exists():
         pytest.fail("Mock daemon failed to start within 10 seconds")
 
     time.sleep(0.3)
@@ -47,7 +48,6 @@ def mock_daemon():
     except Exception:
         pass
     sock_path.unlink(missing_ok=True)
-    meta_path = Path.home() / ".cache" / "stata-agent" / "sessions" / "statest_test.json"
     meta_path.unlink(missing_ok=True)
 
 
