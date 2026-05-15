@@ -395,9 +395,9 @@ def bench_graph_operations(client, entries: list):
     os.close(tmp_fd)
     os.unlink(out)
 
-    # Our code: export_graph() (full wrapper)
+    # Our code: export_graph() (full wrapper, default PDF format)
     def export_graph_wrapper():
-        client.export_graph(name="g1", fmt="png", out_path=out)
+        client.export_graph(name="g1", fmt="pdf", out_path=out)
     entries.append(entry(g, "graph_export_wrapper",
                    measure(export_graph_wrapper, min_time=1.0)))
 
