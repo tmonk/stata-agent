@@ -306,6 +306,33 @@ def bench_data_inspection(client, entries: list):
     else:
         print("  [jsonio not installed, skip inspect_get_json]")
 
+    # Arrow export — default (all vars, all rows)
+    def get_arrow():
+        fd, out = tempfile.mkstemp(suffix=".arrow")
+        os.close(fd)
+        os.unlink(out)
+        client.inspect_get(format="arrow", out_path=out)
+        os.unlink(out)
+    entries.append(entry(g, "inspect_get_arrow", measure(get_arrow)))
+
+    # Arrow export with varlist (partial columns)
+    def get_arrow_varlist():
+        fd, out = tempfile.mkstemp(suffix=".arrow")
+        os.close(fd)
+        os.unlink(out)
+        client.inspect_get(format="arrow", out_path=out, varlist="price mpg weight")
+        os.unlink(out)
+    entries.append(entry(g, "inspect_get_arrow_varlist", measure(get_arrow_varlist)))
+
+    # Arrow export with obs_range (partial rows)
+    def get_arrow_obsrange():
+        fd, out = tempfile.mkstemp(suffix=".arrow")
+        os.close(fd)
+        os.unlink(out)
+        client.inspect_get(format="arrow", out_path=out, obs_range="1:10")
+        os.unlink(out)
+    entries.append(entry(g, "inspect_get_arrow_obsrange", measure(get_arrow_obsrange)))
+
 
 def bench_results(client, entries: list):
     """Benchmark our result-retrieval wrapper (_read_log_tail() + parsing)."""
@@ -368,6 +395,12 @@ def bench_graph_operations(client, entries: list):
     os.close(tmp_fd)
     os.unlink(out)
 
+    # Our code: export_graph() (full wrapper)
+    def export_graph_wrapper():
+        client.export_graph(name="g1", fmt="png", out_path=out)
+    entries.append(entry(g, "graph_export_wrapper",
+                   measure(export_graph_wrapper, min_time=1.0)))
+
     def graph_export():
         client._stata_run("graph display g1", echo=False)
         client._stata_run(f'graph export "{out}", name(g1) replace', echo=False)
@@ -377,6 +410,56 @@ def bench_graph_operations(client, entries: list):
         os.unlink(out)
     except FileNotFoundError:
         pass
+
+
+def bench_log_operations(client, entries: list):
+    """Benchmark log reading and error extraction."""
+    g = "LogOperations"
+
+    # Generate some log content first
+    client.run("display 1+1", echo=True)
+    client.run("display 2+2", echo=True)
+    for i in range(10):
+        client.run(f"display {i}", echo=False)
+
+    # Our code: read_log_tail()
+    def read_tail():
+        client.read_log_tail(lines=50)
+    entries.append(entry(g, "log_tail_50", measure(read_tail)))
+
+    # Get log errors (no errors expected — measures parsing overhead)
+    log_path_str = str(client._log_path) if client._log_path else ""
+    from stata_agent.error_extractor import ErrorExtractor
+    extractor = ErrorExtractor()
+
+    def extract_errors():
+        if log_path_str:
+            extractor.extract_from_tail(log_path_str)
+        return None
+    entries.append(entry(g, "log_errors_clean", measure(extract_errors)))
+
+    # Log rotation (triggers file rotation + log close/reopen)
+    # Small adjustment: write many lines to force rotation
+    for i in range(5):
+        client.run("display 'line' + string(" + str(i) + ")", echo=True)
+
+    def rotate_log():
+        client._rotate_if_needed()
+    entries.append(entry(g, "log_rotate", measure(rotate_log)))
+
+    # Search in log
+    from stata_agent.log_manager import search_in_log
+
+    def search():
+        search_in_log(client._log_path, "display")
+    entries.append(entry(g, "log_search", measure(search)))
+
+    # Paginated read
+    from stata_agent.log_manager import paginated_read
+
+    def paginated():
+        paginated_read(client._log_path, offset=0, max_bytes=4096)
+    entries.append(entry(g, "log_paginated_read", measure(paginated)))
 
 
 def bench_daemon(entries: list):
@@ -432,6 +515,38 @@ def bench_daemon(entries: list):
                                 "max_output_tokens": 1000})
         entries.append(entry(g, "daemon_run_multiline",
                        measure(run_multiline, min_time=1.0)))
+
+        # Arrow export via RPC (small dataset)
+        client.call("run", {"code": "sysuse auto, clear", "echo": False})
+        arrow_dir = tempfile.mkdtemp(prefix="arrow_daemon_")
+
+        def arrow_rpc():
+            out_path = os.path.join(arrow_dir, f"out_{uuid.uuid4().hex}.arrow")
+            client.call("inspect_get", {"format": "arrow", "out_path": out_path})
+            return out_path
+        entries.append(entry(g, "daemon_inspect_get_arrow", measure(arrow_rpc)))
+
+        # Arrow export with varlist via RPC
+        def arrow_rpc_varlist():
+            out_path = os.path.join(arrow_dir, f"out_{uuid.uuid4().hex}.arrow")
+            client.call("inspect_get", {"format": "arrow", "out_path": out_path,
+                                         "varlist": "price mpg weight"})
+            return out_path
+        entries.append(entry(g, "daemon_inspect_get_arrow_varlist",
+                       measure(arrow_rpc_varlist)))
+
+        # log_tail via RPC
+        def tail_rpc():
+            client.call("log_tail", {"lines": 50})
+        entries.append(entry(g, "daemon_log_tail_50", measure(tail_rpc)))
+
+        # log_errors via RPC
+        def errors_rpc():
+            client.call("log_errors", {"context_lines": 20})
+        entries.append(entry(g, "daemon_log_errors", measure(errors_rpc)))
+
+        import shutil
+        shutil.rmtree(arrow_dir, ignore_errors=True)
 
         # Pure Python: JSON ser/deser (our code for IPC framing)
         request = {"id": "test", "method": "run",
@@ -517,6 +632,9 @@ def main():
 
     print("\n  --- Graph Operations ---")
     bench_graph_operations(client, entries)
+
+    print("\n  --- Log Operations ---")
+    bench_log_operations(client, entries)
 
     client.close()
 

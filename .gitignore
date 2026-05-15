@@ -17,3 +17,6 @@ False.log
 
 # pi agent workspace — not part of the project
 .pi/
+
+# Generated benchmark dataset (90+ MB)
+testdata/large_benchmark.dta
