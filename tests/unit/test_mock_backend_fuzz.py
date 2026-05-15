@@ -515,6 +515,18 @@ class TestFuzzRouteCommand:
 
     @pytest.mark.parametrize("cmd", COMMANDS_TO_TRY)
     def test_cmd_does_not_crash(self, cmd: str) -> None:
+        """Every command in the fuzz list should not crash _route_command."""
+        try:
+            result = _route_command(cmd)
+            assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+            assert "ok" in result
+            assert "rc" in result
+            assert "stdout" in result
+            assert isinstance(result["stdout"], str)
+            assert isinstance(result["ok"], bool)
+            assert isinstance(result["rc"], int)
+        except Exception as e:
+            pytest.fail(f"_route_command({cmd!r}) raised {type(e).__name__}: {e}")
 
     def test_fuzz_extremely_long_display(self) -> None:
         """Very long display tested separately to avoid Windows env var limits."""
@@ -533,19 +545,6 @@ class TestFuzzRouteCommand:
             assert "ok" in result
         except Exception as e:
             pytest.fail(f"Very long set raised {type(e).__name__}: {e}")
-        """Every command in the fuzz list should not crash _route_command."""
-        try:
-            result = _route_command(cmd)
-            # Basic structural checks
-            assert isinstance(result, dict), f"Expected dict, got {type(result)}"
-            assert "ok" in result
-            assert "rc" in result
-            assert "stdout" in result
-            assert isinstance(result["stdout"], str)
-            assert isinstance(result["ok"], bool)
-            assert isinstance(result["rc"], int)
-        except Exception as e:
-            pytest.fail(f"_route_command({cmd!r}) raised {type(e).__name__}: {e}")
 
     def test_fuzz_random_commands(self) -> None:
         """Throw random generated Stata-ish code at the router."""
