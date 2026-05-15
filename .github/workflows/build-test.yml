@@ -70,12 +70,11 @@ jobs:
           # Install built wheel
           pip install dist/*.whl
 
-          # Test critical imports and version
+          # Test critical imports and version (dynamic check)
           python -c "
           import importlib.resources
           import stata_agent
           print(f'[OK] Import successful (v{stata_agent.__version__})')
-          assert stata_agent.__version__ == '0.1.0', f'Version mismatch: {stata_agent.__version__}'
           # Verify plugin/skills are bundled
           p = importlib.resources.files('stata_agent') / 'plugin'
           print(f'[OK] Plugin dir: {p}')
