@@ -1,11 +1,8 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'src/**'
+  # push trigger disabled — manual workflow_dispatch only.
+  # Automatic releases kept bumping version incorrectly.
   workflow_dispatch:
 
 permissions:
