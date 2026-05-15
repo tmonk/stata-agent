@@ -144,8 +144,13 @@ class TestLogRotator:
 
     def test_cleanup_old(self, tmp_path):
         rot = LogRotator("test", log_dir=tmp_path, ttl_hours=0)  # 0 TTL = delete everything
-        # Create some old-looking log files
-        (tmp_path / "test_old.log").write_text("old")
+        # Create some old-looking log files with explicit old timestamps
+        import time as _time
+        old_file = tmp_path / "test_old.log"
+        old_file.write_text("old")
+        # Set mtime to 1 hour ago to avoid Windows filesystem timestamp edge cases
+        old_mtime = _time.time() - 3600
+        os.utime(str(old_file), (old_mtime, old_mtime))
         (tmp_path / "other.log").write_text("other")
         removed = rot.cleanup_old()
         assert removed >= 1  # at least test_old.log removed
