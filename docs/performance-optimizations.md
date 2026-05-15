@@ -33,6 +33,8 @@ projects. Its purpose is to:
 - [Optimization 10: Pre-encode strings and early newline detection](#optimization-10-pre-encode-fixed-strings-and-early-newline-detection)
 - [Optimization 11: Vectorized pyarrow export via Data.toNPArray()](#optimization-11-vectorized-pyarrow-export-via-datatonparray)
   - [Before/after breakdown](#beforeafter-breakdown)
+- [Optimization 12: Skip graph display before export](#optimization-12-skip-graph-display-before-export)
+  - [Result](#result-1)
 - [Rejected Approaches](#rejected-approaches)
   - [A. Cython extension to read Stata internals](#a-cython-extension-to-read-stata-internals)
   - [B. Direct ctypes into libstata internal symbols](#b-direct-ctypes-into-libstata-internal-symbols)
@@ -429,6 +431,92 @@ Verified via round-trip tests:
 
 Saved to `benchmarks/history/benchmark_arrow_20260515_143920_25a58c6.json`
 (phase: `optimized_v1_toNPArray`, 26.5× speedup on DirectCall_large).
+
+---
+
+## Optimization 12: Skip graph display before export
+
+**Type**: Adopted ✓  
+**Location**: `stata_agent/stata_client.py` (`export_graph()`)  
+**Commit**: Current
+
+### Problem
+
+The `export_graph()` method performed an expensive two-step sequence:
+
+```python
+self._stata_run(f'graph display "{name}"', echo=False)  # ~15ms
+self._stata_run(f'graph export "{out_path}", replace as({fmt})', echo=False)  # ~3ms (PDF)
+```
+
+The `graph display` command renders the graph to the screen before exporting
+it. This adds **~15ms** of Stata rendering time — 83% of the total export
+latency. Subsequent `graph export` re-renders the same graph to the file.
+
+### Solution
+
+Replace the two-step with a single `graph export` call using the `name()`
+option to specify the graph directly:
+
+```python
+if name:
+    self._stata_run(
+        f'graph export "{out_path}", name({name}) replace as({fmt})',
+        echo=False,
+    )
+```
+
+The `name()` option tells Stata to export the named graph directly without
+first displaying it. This works for all formats (PDF, PNG, SVG, EPS).
+
+When `name` is `None` (export the currently displayed graph), the original
+behavior is preserved.
+
+### Result
+
+| Metric | Before (display+export) | After (name() direct) | Improvement |
+|---|---|---|---|
+| **PDF export** (default format) | 18.0 ms | **2.7 ms** | **6.7×** |
+| **SVG export** | N/A | **2.0 ms** | Fastest format |
+| **EPS export** | N/A | **3.8 ms** | Comparable to PDF |
+| **PNG width(400)** | N/A | **24.5 ms** | Lower-res raster |
+| **PNG default (800px)** | 114 ms | **43.8 ms** | 2.6× (display removal saves 15ms) |
+| **PNG width(1600)** | N/A | **115 ms** | Higher-res raster |
+| **PNG width(3200)** | N/A | **337 ms** | Max-res raster |
+| `graph display` step | 15 ms | **0 ms** (eliminated) | ∞ |
+| wrapper rounds (benchmark) | 22 rounds | **371 rounds** | 17× |
+
+Key insight: the 15ms `graph display` step was pure overhead — it rendered
+the graph to screen only to have `graph export` render it again. By using
+`name()` directly, we eliminate the redundant render.
+
+**Format comparison** (all measured with `name(g1)` direct export, no display):
+
+| Format | Mean time | File size | Type |
+|--------|-----------|-----------|------|
+| SVG | **2.0 ms** | 39 KB | Vector |
+| PDF | **2.9 ms** | 11 KB | Vector (default) |
+| EPS | **3.8 ms** | 22 KB | Vector |
+| PNG width(200) | 18 ms* | 4 KB | Raster |
+| PNG width(400) | 25 ms | 9 KB | Raster |
+| PNG default (800px) | 44 ms | 19 KB | Raster |
+| PNG width(1600) | 115 ms | 46 KB | Raster |
+| PNG width(3200) | 337 ms | 107 KB | Raster |
+
+*First call warms Stata's renderer (640ms outlier excluded).
+
+**PNG cost is dominated by Stata's pixel rendering engine, not our
+wrapper code.** The optimization removes the display overhead (~15ms) but
+PNG rasterization time grows quadratically with resolution (width × height
+pixels) and is bounded by Stata's internal rendering pipeline.
+
+### Benchmark results
+
+From comprehensive benchmark suite (`run_real_benchmarks.py`):
+- `GraphOperations::graph_export_wrapper`: **46.67ms → 2.70ms** (17.3×)
+- `GraphOperations::graph_export` (raw two-step, unchanged): 57ms
+- Full format comparison: `benchmarks/profile_graph_export_formats.py`
+- Saved to `benchmarks/history/benchmark_20260515_145845_b9aa740.json`
 
 ---
 
