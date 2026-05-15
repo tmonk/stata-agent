@@ -173,7 +173,7 @@ def _check_skills_for_agent(
     else:
         return SkillStatus(registered=False)
 
-    if not link.exists(follow_symlinks=False):
+    if not os.path.lexists(link):
         return SkillStatus(registered=False)
     if link.is_symlink():
         if not link.exists():
