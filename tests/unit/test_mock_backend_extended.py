@@ -15,9 +15,11 @@ from stata_agent.mock_backend import (
     MockDaemon,
     _get_state,
     _load_canned_responses,
+    _MOCK_TMP_DIR,
     _route_command,
     _sanitise_out_path,
     _session_state,
+    _temp_log_path,
 )
 
 
@@ -37,12 +39,12 @@ class TestSanitiseOutPath:
 
     def test_empty_path_uses_fallback(self) -> None:
         result = _sanitise_out_path("", "test_session")
-        assert result.startswith("/tmp/stata-agent-mock/exports/")
+        assert result.startswith(str(_MOCK_TMP_DIR / "exports" / ""))
         assert "test_session" in result
 
     def test_normal_path_extracts_basename(self) -> None:
         result = _sanitise_out_path("/some/arbitrary/path/data.csv", "sess")
-        assert result.startswith("/tmp/stata-agent-mock/exports/")
+        assert result.startswith(str(_MOCK_TMP_DIR / "exports" / ""))
         assert result.endswith("data.csv")
 
     def test_special_chars_replaced_with_underscores(self) -> None:
@@ -54,7 +56,7 @@ class TestSanitiseOutPath:
         assert "/etc/" not in result
         assert result.endswith("passwd")
         # The result should be under the safe dir
-        assert result.startswith("/tmp/stata-agent-mock/exports/")
+        assert result.startswith(str(_MOCK_TMP_DIR / "exports" / ""))
 
     def test_session_name_in_fallback(self) -> None:
         result = _sanitise_out_path("", "my_custom_session")
@@ -158,7 +160,7 @@ class TestRouteCommandExtended:
 
     def test_log_path_includes_session(self) -> None:
         result = _route_command("display 1+1", session="my_session")
-        assert "my_session" in result["log_path"]
+        assert result["log_path"] == _temp_log_path("my_session")
 
 
 # ---------------------------------------------------------------------------
@@ -243,7 +245,7 @@ class TestMockDaemonExtended:
         result = self._dispatch(daemon, "inspect_get", {"format": "csv"})
         assert "path" in result
         # Should fall under the safe temp directory
-        assert result["path"].startswith("/tmp/stata-agent-mock/")
+        assert str(_MOCK_TMP_DIR) in result["path"]
 
     def test_inspect_get_sanitises_path(self) -> None:
         """out_path with special chars is sanitised."""
@@ -253,7 +255,7 @@ class TestMockDaemonExtended:
         })
         assert "evil.sh" in result["path"]
         # Should not escape the safe dir
-        assert result["path"].startswith("/tmp/stata-agent-mock/")
+        assert str(_MOCK_TMP_DIR) in result["path"]
 
     def test_inspect_get_size_bytes(self) -> None:
         daemon = MockDaemon()

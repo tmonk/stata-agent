@@ -11,6 +11,7 @@ import json
 import os
 import re
 import string
+import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -21,16 +22,34 @@ from typing import Any, Optional
 # Path sanitisation — keep output under a safe temp directory
 # ---------------------------------------------------------------------------
 
-_MOCK_TMP_DIR = Path("/tmp/stata-agent-mock")
+_MOCK_TMP_DIR = Path(tempfile.gettempdir()) / "stata-agent-mock"
+
+
+def _temp_log_path(session: str) -> str:
+    """Return a platform-agnostic mock log path."""
+    _MOCK_TMP_DIR.mkdir(parents=True, exist_ok=True)
+    return str(_MOCK_TMP_DIR / f"mock_{session}.log")
+
+
+def _temp_export_path(session: str) -> str:
+    """Return a platform-agnostic default export path."""
+    return str(_MOCK_TMP_DIR / f"mock_{session}_export.csv")
+
+
+def _temp_graph_path(name: str, fmt: str) -> str:
+    """Return a platform-agnostic mock graph export path."""
+    return str(_MOCK_TMP_DIR / f"mock_{name}.{fmt}")
+
+
 _SAFE_CHARS = frozenset(string.ascii_letters + string.digits + "-_.")
 
 
 def _sanitise_out_path(raw: str, session: str) -> str:
-    """Return a safe absolute path under /tmp for mock export output.
+    """Return a safe absolute path under the temp directory for mock export output.
 
     If *raw* is a non-empty string, its filename component is sanitised
     (non-alphanumeric characters except ``-``, ``_``, ``.`` are replaced
-    with ``_``) and the result is placed under ``/tmp/stata-agent-mock/``.
+    with ``_``) and the result is placed under the temp directory.
     If *raw* is empty, a fallback path using the session name is returned.
     """
     safe_dir = _MOCK_TMP_DIR / "exports"
@@ -215,7 +234,7 @@ def _route_command(code: str, session: str = "default") -> dict[str, Any]:
             "rc": rc,
             "stdout": output,
             "error": f"Stata error r({rc})" if rc else None,
-            "log_path": f"/tmp/mock_{session}.log",
+            "log_path": _temp_log_path(session),
         }
 
     # Prefix matching for display expressions
@@ -230,50 +249,50 @@ def _route_command(code: str, session: str = "default") -> dict[str, Any]:
                 "ok": True,
                 "rc": 0,
                 "stdout": f". {code}\n{result}\n",
-                "log_path": f"/tmp/mock_{session}.log",
+                "log_path": _temp_log_path(session),
             }
         except Exception:
             return {
                 "ok": True,
                 "rc": 0,
                 "stdout": f". {code}\n{expr}\n",
-                "log_path": f"/tmp/mock_{session}.log",
+                "log_path": _temp_log_path(session),
             }
 
     # graph dir, memory
     if "graph dir" in norm:
         graphs = state.get("graphs", [])
         if not graphs:
-            return {"ok": True, "rc": 0, "stdout": "", "log_path": f"/tmp/mock_{session}.log"}
+            return {"ok": True, "rc": 0, "stdout": "", "log_path": _temp_log_path(session)}
         return {
             "ok": True,
             "rc": 0,
             "stdout": "  " + "  ".join(graphs),
-            "log_path": f"/tmp/mock_{session}.log",
+            "log_path": _temp_log_path(session),
         }
 
     # graph export
     if "graph export" in norm:
-        return {"ok": True, "rc": 0, "stdout": f"(file written in PNG format)", "log_path": f"/tmp/mock_{session}.log"}
+        return {"ok": True, "rc": 0, "stdout": f"(file written in PNG format)", "log_path": _temp_log_path(session)}
 
     # generate
     if norm.startswith("gen ") or norm.startswith("generate "):
-        return {"ok": True, "rc": 0, "stdout": f". {code}\n", "log_path": f"/tmp/mock_{session}.log"}
+        return {"ok": True, "rc": 0, "stdout": f". {code}\n", "log_path": _temp_log_path(session)}
 
     # set more off — no output
     if norm.startswith("set "):
-        return {"ok": True, "rc": 0, "stdout": "", "log_path": f"/tmp/mock_{session}.log"}
+        return {"ok": True, "rc": 0, "stdout": "", "log_path": _temp_log_path(session)}
 
     # log using / log close
     if norm.startswith("log "):
-        return {"ok": True, "rc": 0, "stdout": "", "log_path": f"/tmp/mock_{session}.log"}
+        return {"ok": True, "rc": 0, "stdout": "", "log_path": _temp_log_path(session)}
 
     # Default: accept as valid but unknown
     return {
         "ok": True,
         "rc": 0,
         "stdout": f". {code}\n",
-        "log_path": f"/tmp/mock_{session}.log",
+        "log_path": _temp_log_path(session),
     }
 
 
@@ -437,7 +456,7 @@ class MockDaemon:
                         "ok": False,
                         "rc": 9,
                         "stdout": f"assertion failure: expected {scalars.get('statest_expected', '?')}, got {scalars.get('statest_actual', '?')}",
-                        "log_path": f"/tmp/mock_{session}.log",
+                        "log_path": _temp_log_path(session),
                         "error": "Assertion failure (rc=9)",
                     }
 
@@ -476,7 +495,7 @@ class MockDaemon:
         elif method == "inspect_get":
             # Create a mock export file so the client can read it.
             # Sanitise the path to prevent writing to CWD with garbage names.
-            raw_out_path = args.get("out_path", f"/tmp/mock_{session}_export.csv")
+            raw_out_path = args.get("out_path", _temp_export_path(session))
             out_path = _sanitise_out_path(raw_out_path, session)
             try:
                 Path(out_path).parent.mkdir(parents=True, exist_ok=True)
@@ -491,7 +510,7 @@ class MockDaemon:
             return {"graph_names": state.get("graphs", [])}
 
         elif method == "graph_export":
-            return {"file_path": f"/tmp/mock_{args.get('name', 'graph')}.{args.get('format', 'pdf')}", "size_bytes": 0}
+            return {"file_path": _temp_graph_path(args.get("name", "graph"), args.get("format", "pdf")), "size_bytes": 0}
 
         elif method == "results":
             state = _get_state(session)
@@ -510,7 +529,7 @@ class MockDaemon:
             return {"matches": []}
 
         elif method == "log_path":
-            return {"log_path": "/tmp/mock_log.log"}
+            return {"log_path": _temp_log_path("default")}
 
         elif method == "task_status":
             return {"status": "completed", "rc": 0}
