@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "CLI-native Stata integration for AI agents. Run code, inspect data, retrieve results, export graphs, and test do-files."
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "AGPL-3.0-only"
 authors = [
     {name = "Thomas Monk", email = "t.d.monk@lse.ac.uk"}
 ]
@@ -23,9 +23,10 @@ keywords = [
     "data-analysis",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -52,20 +53,59 @@ stata-agent = "stata_agent.cli:main"
 [project.optional-dependencies]
 mock = []
 data-browser = ["pyarrow>=14.0"]
+dev = [
+    "build>=1.3.0",
+    "hatch>=1.16.2",
+    "twine>=6.2.0",
+    "ruff>=0.4.0",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=0.24",
+    "pytest-benchmark>=5.2.3",
+    "pytest-cov>=4.0.0",
+    "python-semantic-release>=9.8.0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/stata_agent"]
 
+[tool.hatch.build.targets.sdist]
+exclude = ["/tests", "/uv.lock"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+addopts = "-v --cov=stata_agent --cov-report=term-missing"
 markers = [
-    "requires_stata: tests that need a live Stata license",
+    "requires_stata: tests that need a live Stata license (deselect with '-m \"not requires_stata\"')",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
 filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.semantic_release]
+version_variables = [
+    "src/stata_agent/__init__.py:__version__",
+]
+version_toml = [
+    "pyproject.toml:project.version",
+]
+branch = "main"
+commit_message = "chore(release): {version} [skip ci]"
+tag_format = "v{version}"
 
 [dependency-groups]
 dev = [
     "pytest-asyncio>=0.24",
     "pytest-benchmark>=5.1.0",
+    "ruff>=0.4.0",
 ]
