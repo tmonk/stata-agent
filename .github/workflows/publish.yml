@@ -1,15 +1,14 @@
 name: Publish to PyPI
 
 on:
-  # release:
-  #   types: [published]
-  # workflow_dispatch disabled — manual publish blocked until versioning is fixed.
-  # workflow_dispatch:
-  #   inputs:
-  #     ref:
-  #       description: "Tag or branch to publish"
-  #       required: true
-  #       default: "main"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or branch to publish"
+        required: true
+        default: "main"
 
 jobs:
   build-and-publish:
