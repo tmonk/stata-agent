@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.2.1 (2026-05-16)
+
+### Bug Fixes
+
+- **skills**: Restore CLI usage details lost during reformatting
+  ([`f74c18c`](https://github.com/tmonk/stata-agent/commit/f74c18c02160a6580fab2299330c906e1eae9f59))
+
+### Refactoring
+
+- **skills**: Remove repetitive --session flags from CLI reference tables
+  ([`a28bb21`](https://github.com/tmonk/stata-agent/commit/a28bb21d64757df22c3b14375ec338faef573d97))
+
+
 ## v0.2.0 (2026-05-16)
 
 ### Continuous Integration
