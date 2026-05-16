@@ -1,19 +1,18 @@
-# stata-lint
+---
+name: stata-lint
+description: Run static analysis on a Stata .do or .ado file and report style and best-practice issues.
+---
 
-Static analysis for Stata do-files.
+The argument is the absolute path to a `.do` or `.ado` file.
 
-## Commands
+1. Call `stata lint <argument>`.
 
-- `stata lint /path/to/file.do` — Check a do-file for issues
+2. Display the lint results, grouping issues by severity or type:
+   - Line number and issue description for each finding
+   - Common issues: use of `cd`, `preserve`/`restore`, `#delimit`, hardcoded paths, long lines, missing `version` statement
 
-## Checks
+3. For each category of issue found, briefly explain the modern alternative (refer to the **stata-modernize** skill for details).
 
-- Unclosed braces (`{` / `}`)
-- Unclosed Mata blocks
-- Shell commands (`!wget`, `!curl`, etc.)
-- Deprecated `set memory`
-- Unbalanced quotes
+4. If the file is clean, confirm: "No issues found in `<filename>`."
 
-## Exit Code
-
-Returns 1 if any errors are found, 0 otherwise.
+5. If the path argument is missing, tell the user to provide an absolute path to a `.do` or `.ado` file.

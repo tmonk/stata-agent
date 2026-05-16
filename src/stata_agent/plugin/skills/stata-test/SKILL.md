@@ -1,12 +1,24 @@
-# stata-test
+---
+name: stata-test
+description: Discover and run statest test suites for Stata do-files.
+---
 
-Discover and run statest test suites for Stata do-files.
+The argument is a path to a test file or directory containing test files.
 
-## Commands
+**Discovering tests:**
+- Call `stata test discover <path>` to list `test_*.do` files under the given path.
+- If no test files are found, report that.
 
-- `stata test discover <path>` — List `test_*.do` files
-- `stata test run <file>` — Run a single test file
-- `stata test run-all <path>` — Run all tests under a directory
+**Running a single test file:**
+- Call `stata test run <file>` to execute a single `test_*.do` file.
+- Display the results: pass/fail status, which assertions passed or failed, and any error output.
+
+**Running all tests under a directory:**
+- Call `stata test run-all <path>` to execute every `test_*.do` file in the directory tree.
+- Display a summary of results across all test files.
+
+**On failure:**
+Output shows which assertion failed, expected vs actual values, and the last 20 lines of the test log.
 
 ## Writing tests
 
@@ -26,8 +38,3 @@ st_assert_matrix r(table), expected(M) tol(0.001)
 | `statest_setup.do` | Per-test | Before each test file |
 | `statest_teardown.do` | Per-test | After test (always) |
 | `statest_conftest.do` | Suite | Once before the suite |
-
-## On failure
-
-Output shows which assertion failed, expected vs actual values, and
-last 20 lines of the test log.

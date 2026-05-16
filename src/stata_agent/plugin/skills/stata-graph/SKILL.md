@@ -1,20 +1,17 @@
-# stata-graph
+---
+name: stata-graph
+description: List, export, and review Stata graphs from the current session.
+---
 
-Manage Stata graphs in memory.
+1. Call `stata graph list` to see all graphs in memory, with the active graph marked.
 
-## Commands
+2. If an argument (graph name) was provided:
+   - Call `stata graph export --name <graph_name> --format png` and display the exported file path.
 
-- `stata graph list [--session NAME]` — List graphs in memory
-- `stata graph export --name NAME --format pdf|png|svg [--out /path]` — Export a graph
-- `stata graph export-all --format pdf|png [--outdir ./figures]` — Export all graphs
+3. If no argument was provided and graphs exist:
+   - Call `stata graph export-all --format png` to export all graphs.
+   - Display all exported file paths for the user to inspect.
 
-## Best Practices
+4. If no graphs are in memory, tell the user to create a graph first (e.g., `stata run "histogram price"` or `stata run "scatter price mpg"`).
 
-1. Name graphs explicitly in Stata: `twoway scatter price mpg, name(myfig)`
-2. After graph-generating code, run `stata graph list` to see what was created.
-3. Export with `stata graph export --name myfig --format svg --out figs/myfig.svg`.
-
-## Notes
-
-- Unnamed graphs appear as `"Graph"` in the list.
-- `export-all` renames unnamed graphs to `_unnamedN`.
+After export, review the graph(s): check titles, axis labels, legends, and whether the plot matches expectations. Report any issues.

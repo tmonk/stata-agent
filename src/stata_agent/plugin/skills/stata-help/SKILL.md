@@ -1,18 +1,20 @@
-# stata-help
+---
+name: stata-help
+description: Look up Stata command documentation and display formatted help text.
+---
 
-Get Stata help documentation (stateless subprocess, no daemon needed).
+The argument is the Stata command or help topic (e.g., "regress", "graph", "if", "egen", "frames").
 
-## Commands
+Call `stata help <topic>`.
 
-- `stata help <topic>` — Full help text
-- `stata help <topic> --format syntax` — Syntax only
-- `stata help <topic> --format options` — Options only
-- `stata help <topic> --format examples` — Examples only
-- `stata help <topic> --format summary` — Syntax + stored results
-- `stata help <topic> --max-lines N` — Limit output length
+Display the help text. The response is formatted as Markdown. Present:
+1. Syntax section first
+2. Description and options
+3. Examples if present
 
-## Notes
+If no argument is provided, ask the user which Stata command they want help with.
 
-- Runs `stata-se -q` as subprocess (not through daemon).
-- Terminal escape sequences are stripped automatically.
-- Batch mode (`-b`) blocks help; quiet interactive (`-q`) is required.
+If the help topic is not found (error in response), suggest:
+- Checking spelling (e.g., "summarize" not "summarise")
+- Using `help contents` as the topic for the help index
+- Searching for related commands with `stata inspect` using `describe` or `codebook`

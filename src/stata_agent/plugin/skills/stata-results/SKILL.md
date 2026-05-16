@@ -1,14 +1,16 @@
-# stata-results
+---
+name: stata-results
+description: Fetch and display stored r(), e(), and s() results from the last Stata command.
+---
 
-Retrieve stored Stata results.
+Call `stata results [--return r|e|s]`.
 
-## Commands
+Present the results in a structured format:
+- **r() scalars**: name → value pairs (e.g., r(N), r(mean), r(sd))
+- **e() scalars**: model-level results (e.g., e(N), e(r2), e(F))
+- **e() matrices**: if present, display **b** (coefficient vector) and **V** (variance-covariance matrix) as formatted tables
+- **s() macros**: string results if any
 
-- `stata results [--session NAME] [--return r|e|s]` — Get stored results
+If no results are stored (empty response), tell the user to run a Stata command first (e.g., `regress`, `summarize`, `ttest`).
 
-## Notes
-
-- `r()` — return results from last command
-- `e()` — estimation results (after regress, etc.)
-- `s()` — saved results from programs
-- Use `--json` for structured output.
+If the user needs Mata state, they can pass `--json` to get structured output with all available result classes.
