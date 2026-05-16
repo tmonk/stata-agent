@@ -62,6 +62,7 @@ dev = [
     "pytest-asyncio>=0.24",
     "pytest-benchmark>=5.2.3",
     "pytest-cov>=4.0.0",
+    "pytest-xdist>=3.6.1",
     "python-semantic-release>=9.8.0",
 ]
 
@@ -77,12 +78,22 @@ exclude = ["/tests", "/uv.lock"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "-v --cov=stata_agent --cov-report=term-missing"
+addopts = "-v -m 'not slow and not benchmark'"
 markers = [
     "requires_stata: tests that need a live Stata license (deselect with '-m \"not requires_stata\"')",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "fast: marks tests that complete in under 5 seconds (default run target)",
+    "benchmark: marks pytest-benchmark performance tests (not run in default CI)",
 ]
 filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["stata_agent"]
+relative_files = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
 
 [tool.uv]
 package = true
@@ -105,5 +116,6 @@ ignore = ["E501"]
 dev = [
     "pytest-asyncio>=0.24",
     "pytest-benchmark>=5.1.0",
+    "pytest-xdist>=3.6.1",
     "ruff>=0.4.0",
 ]

@@ -51,17 +51,45 @@ def _is_stata_available() -> bool:
 
 
 def pytest_collection_modifyitems(config, items):
-    """Auto-skip tests based on platform and Stata availability."""
-    # Skip requires_stata tests when Stata is unavailable
-    if _is_stata_available():
-        return  # Don't skip — real Stata is available
+    """Auto-skip tests based on platform and Stata availability.
 
-    skip_marker = pytest.mark.skip(
-        reason="requires Stata license — run with Stata installed and without STATA_AGENT_MOCK=1"
-    )
+    Also applies ``fast``, ``slow``, and ``benchmark`` markers based on
+    the item's file path so that developers can run sensible subsets.
+    """
+    tests_root = Path(__file__).resolve().parent
+
     for item in items:
-        if "requires_stata" in item.keywords:
-            item.add_marker(skip_marker)
+        fspath = Path(item.fspath).resolve()
+
+        # -- Marker: benchmark (tests/benchmarks/) ------------------------
+        if _in_dir(fspath, tests_root / "benchmarks"):
+            item.add_marker(pytest.mark.benchmark)
+
+        # -- Marker: slow (e2e, install) --------------------------------
+        if _in_dir(fspath, tests_root / "e2e") or _in_dir(fspath, tests_root / "install"):
+            item.add_marker(pytest.mark.slow)
+
+        # -- Marker: fast (tests/unit/) ----------------------------------
+        if _in_dir(fspath, tests_root / "unit"):
+            item.add_marker(pytest.mark.fast)
+
+        # -- Auto-skip: requires_stata -----------------------------------
+        if "requires_stata" not in item.keywords:
+            continue
+        if _is_stata_available():
+            continue
+        item.add_marker(pytest.mark.skip(
+            reason="requires Stata license — run with Stata installed and without STATA_AGENT_MOCK=1"
+        ))
+
+
+def _in_dir(path: Path, dirpath: Path) -> bool:
+    """Return True if *path* is inside (or equal to) *dirpath*."""
+    try:
+        path.resolve().relative_to(dirpath.resolve())
+        return True
+    except ValueError:
+        return False
 
 
 @pytest.fixture

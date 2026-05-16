@@ -27,3 +27,5 @@ False.log
 
 # Generated benchmark dataset (90+ MB)
 testdata/large_benchmark.dta
+testing_benchmark.md
+testing_benchmark.md
