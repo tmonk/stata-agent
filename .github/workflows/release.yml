@@ -1,8 +1,12 @@
 name: Release
 
 on:
-  # push trigger disabled — manual workflow_dispatch only.
-  # Automatic releases kept bumping version incorrectly.
+  push:
+    branches:
+      - 'main'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
