@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "stata-agent"
-version = "0.1.2"
+dynamic = ["version"]
 description = "CLI-native Stata integration for AI agents. Run code, inspect data, retrieve results, export graphs, and test do-files."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -68,6 +68,9 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/stata_agent"]
 
+[tool.hatch.version]
+source = "vcs"
+
 [tool.hatch.build.targets.sdist]
 exclude = ["/tests", "/uv.lock"]
 
@@ -92,16 +95,6 @@ target-version = "0.1.2"
 select = ["E", "F", "I", "W"]
 ignore = ["E501"]
 
-[tool.semantic_release]
-version_variables = [
-    "src/stata_agent/__init__.py:__version__",
-]
-version_toml = [
-    "pyproject.toml:project.version",
-]
-branch = "main"
-commit_message = "chore(release): {version} [skip ci]"
-tag_format = "v{version}"
 
 [dependency-groups]
 dev = [

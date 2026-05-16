@@ -1393,7 +1393,6 @@ wheels = [
 
 [[package]]
 name = "stata-agent"
-version = "0.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "pyarrow" },
@@ -1440,7 +1439,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "twine", marker = "extra == 'dev'", specifier = ">=6.2.0" },
 ]
-provides-extras = ["mock", "data-browser", "dev"]
+provides-extras = ["data-browser", "dev", "mock"]
 
 [package.metadata.requires-dev]
 dev = [

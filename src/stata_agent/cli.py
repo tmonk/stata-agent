@@ -27,7 +27,10 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from stata_agent import __version__
+from importlib import metadata as _metadata
+
+_version = _metadata.version("stata-agent")
+
 from stata_agent.rpc_client import RpcClient, RpcError
 from stata_agent.statest.runner import run_tests, run_test, discover_tests
 from stata_agent.statest.models import TestSuiteSummary
@@ -626,8 +629,9 @@ def cmd_install_skills(args: Any) -> int:
 def cmd_upgrade(args: Any) -> int:
     """Upgrade stata-agent to the latest version."""
     try:
+        from importlib import metadata as _meta
         from stata_agent.skills_installer import check_and_upgrade, _fetch_latest_version, _parse_version
-        from stata_agent import __version__
+        _version_local = _meta.version("stata-agent")
     except ImportError as e:
         print(f"Error: upgrade module not available: {e}", file=sys.stderr)
         return 1
@@ -661,7 +665,7 @@ def cmd_upgrade(args: Any) -> int:
             return 1
 
     if not quiet:
-        print(f"[stata-agent] Checking for updates (current: {__version__})...")
+        print(f"[stata-agent] Checking for updates (current: {_version_local})...")
 
     check_and_upgrade(force=force)
     return 0
@@ -835,7 +839,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the full argument parser."""
     parser = argparse.ArgumentParser(prog="stata-agent", description="CLI-native Stata integration")
     parser.add_argument("--json", action="store_true", help="Output in JSON format")
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {_version}")
     subparsers = parser.add_subparsers(dest="command")
 
     # ---- daemon ----
@@ -1031,7 +1035,7 @@ def main(argv: list[str] | None = None) -> int:
         argv = sys.argv[1:]
     # Handle --version before auto-upgrade check
     if '--version' in argv or '-v' in argv:
-        print(f"stata-agent {__version__}")
+        print(f"stata-agent {_version}")
         return 0
 
     # Determine subcommand without full parse

@@ -11,7 +11,12 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
+from importlib import metadata as _metadata
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+
+_VERSION = _metadata.version("stata-agent")
 
 
 class TestCheckAndUpgrade:
@@ -42,7 +47,6 @@ class TestCheckAndUpgrade:
 
     def test_version_file_sync_on_mismatch(self, tmp_path, monkeypatch):
         """Phase 1: install-skills is called when stored version differs."""
-        from stata_agent import __version__
         from stata_agent.skills_installer import check_and_upgrade
 
         state_dir = self._setup_state_dir(tmp_path, monkeypatch)
@@ -66,7 +70,6 @@ class TestCheckAndUpgrade:
 
     def test_version_file_write_after_sync(self, tmp_path, monkeypatch):
         """Phase 1: version file is updated after sync."""
-        from stata_agent import __version__
         from stata_agent.skills_installer import check_and_upgrade
 
         state_dir = self._setup_state_dir(tmp_path, monkeypatch)
@@ -82,24 +85,23 @@ class TestCheckAndUpgrade:
             # After calling, the version file should exist
             if (state_dir / "installed_version").exists():
                 stored = (state_dir / "installed_version").read_text().strip()
-                assert stored == __version__
+                assert stored == _VERSION
 
     def test_denylist_detection(self, tmp_path, monkeypatch):
         """Phase 2: denylist is detected and update_state.json is updated."""
-        from stata_agent import __version__
         from stata_agent.skills_installer import check_and_upgrade
 
         state_dir = self._setup_state_dir(tmp_path, monkeypatch)
 
         # Set up the version file to match, so Phase 1 is a no-op
-        (state_dir / "installed_version").write_text(__version__)
+        (state_dir / "installed_version").write_text(_VERSION)
 
         # Mock _fetch_latest_version to return denylisted info
         with patch("stata_agent.skills_installer._fetch_latest_version") as mock_fetch:
             mock_fetch.return_value = {
                 "version": "99.99.99",
                 "min_supported": "0.1.0",
-                "denylist": [__version__],
+                "denylist": [_VERSION],
             }
 
             check_and_upgrade(force=False)
@@ -112,11 +114,10 @@ class TestCheckAndUpgrade:
 
     def test_up_to_date_no_upgrade(self, tmp_path, monkeypatch):
         """Phase 2: when current >= latest, no upgrade."""
-        from stata_agent import __version__
         from stata_agent.skills_installer import check_and_upgrade
 
         state_dir = self._setup_state_dir(tmp_path, monkeypatch)
-        (state_dir / "installed_version").write_text(__version__)
+        (state_dir / "installed_version").write_text(_VERSION)
 
         with patch("stata_agent.skills_installer._fetch_latest_version") as mock_fetch:
             mock_fetch.return_value = {
@@ -134,11 +135,10 @@ class TestCheckAndUpgrade:
 
     def test_emergency_disable(self, tmp_path, monkeypatch):
         """Phase 2: emergency_disable=true stops upgrade."""
-        from stata_agent import __version__
         from stata_agent.skills_installer import check_and_upgrade
 
         state_dir = self._setup_state_dir(tmp_path, monkeypatch)
-        (state_dir / "installed_version").write_text(__version__)
+        (state_dir / "installed_version").write_text(_VERSION)
 
         with patch("stata_agent.skills_installer._fetch_latest_version") as mock_fetch:
             mock_fetch.return_value = {
@@ -156,15 +156,14 @@ class TestCheckAndUpgrade:
 
     def test_write_state_on_up_to_date(self, tmp_path, monkeypatch):
         """update_state.json is written for up_to_date results."""
-        from stata_agent import __version__
         from stata_agent.skills_installer import check_and_upgrade
 
         state_dir = self._setup_state_dir(tmp_path, monkeypatch)
-        (state_dir / "installed_version").write_text(__version__)
+        (state_dir / "installed_version").write_text(_VERSION)
 
         with patch("stata_agent.skills_installer._fetch_latest_version") as mock_fetch:
             mock_fetch.return_value = {
-                "version": __version__,  # Same version
+                "version": _VERSION,  # Same version
                 "denylist": [],
             }
 
@@ -177,11 +176,10 @@ class TestCheckAndUpgrade:
 
     def test_fetch_failure_continues_normally(self, tmp_path, monkeypatch):
         """When _fetch_latest_version returns None, command continues."""
-        from stata_agent import __version__
         from stata_agent.skills_installer import check_and_upgrade
 
         state_dir = self._setup_state_dir(tmp_path, monkeypatch)
-        (state_dir / "installed_version").write_text(__version__)
+        (state_dir / "installed_version").write_text(_VERSION)
 
         with patch("stata_agent.skills_installer._fetch_latest_version") as mock_fetch:
             mock_fetch.return_value = None

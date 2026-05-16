@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 # Imported lazily to avoid circular imports
-# from stata_agent import __version__
+
 
 
 def get_plugin_dir() -> Path:
@@ -181,8 +181,8 @@ def install_skills(
 
     if version is None:
         try:
-            from stata_agent import __version__ as v
-            version = v
+            from importlib.metadata import version as _v
+            version = _v("stata-agent")
         except ImportError:
             version = "0.1.0"
 
@@ -433,9 +433,11 @@ def check_and_upgrade(force: bool = False) -> None:
         return
 
     try:
-        from stata_agent import __version__
+        from importlib.metadata import version as _meta_version
     except ImportError:
         return
+
+    _current_version = _meta_version("stata-agent")
 
     state_dir = _get_state_dir()
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -448,7 +450,7 @@ def check_and_upgrade(force: bool = False) -> None:
         stored = installed_version_file.read_text().strip()
     except Exception:
         stored = None
-    if stored != __version__:
+    if stored != _current_version:
         try:
             subprocess = __import__("subprocess")
             subprocess.run(
@@ -458,7 +460,7 @@ def check_and_upgrade(force: bool = False) -> None:
         except Exception:
             pass
         try:
-            installed_version_file.write_text(__version__)
+            installed_version_file.write_text(_current_version)
         except Exception:
             pass
 
@@ -481,15 +483,15 @@ def check_and_upgrade(force: bool = False) -> None:
         })
         return
 
-    if __version__ in denylist:
+    if _current_version in denylist:
         _write_state(state_file, {
             "last_check_ts": int(time.time()),
             "denylist_active": True,
-            "last_failure_reason": f"Version {__version__} is denylisted",
+            "last_failure_reason": f"Version {_current_version} is denylisted",
             "latest_known_version": latest,
         })
 
-    if latest is None or _parse_version(latest) <= _parse_version(__version__):
+    if latest is None or _parse_version(latest) <= _parse_version(_current_version):
         _write_state(state_file, {
             "last_check_ts": int(time.time()),
             "last_check_result": "up_to_date",
@@ -534,7 +536,7 @@ def check_and_upgrade(force: bool = False) -> None:
     _write_state(state_file, {
         "last_check_ts": int(time.time()),
         "last_check_result": "upgraded",
-        "previous_version": __version__,
+        "previous_version": _current_version,
         "last_upgrade_ts": int(time.time()),
         "latest_known_version": latest,
     })

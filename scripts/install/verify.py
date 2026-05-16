@@ -206,15 +206,16 @@ def doctor(plugin_dir: Optional[str] = None) -> DoctorResult:
         plugin_dir: Path to the bundled plugin directory. If None,
                     resolves via importlib.resources if available.
     """
-    from stata_agent import __version__
+    from importlib.metadata import version as _meta_version
 
     result = DoctorResult()
+    _v = _meta_version("stata-agent")
 
     # --- Binary check ---
     binary = _find_stata_agent_binary()
     result.binary_path = binary
-    result.current_version = __version__
-    result.version = __version__
+    result.current_version = _v
+    result.version = _v
     result.auto_upgrade_disabled = bool(os.environ.get("STATA_AGENT_NO_AUTO_UPGRADE"))
 
     if not binary:
@@ -339,8 +340,9 @@ def doctor(plugin_dir: Optional[str] = None) -> DoctorResult:
         )
 
     if result.denylist_active:
+        from importlib.metadata import version as _meta_v
         result.issues.append(
-            f"Current version {__version__} is denylisted. Run 'stata-agent upgrade' to update."
+            f"Current version {_meta_v('stata-agent')} is denylisted. Run 'stata-agent upgrade' to update."
         )
 
     return result
