@@ -15,3 +15,15 @@ description: List, export, and review Stata graphs from the current session.
 4. If no graphs are in memory, tell the user to create a graph first (e.g., `stata run "histogram price"` or `stata run "scatter price mpg"`).
 
 After export, review the graph(s): check titles, axis labels, legends, and whether the plot matches expectations. Report any issues.
+
+## CLI Reference
+
+| Command | Description |
+|---|---|
+| `stata graph list [--session NAME]` | List graphs in memory, active graph marked |
+| `stata graph export --name NAME --format png\|pdf\|svg [--out /path]` | Export a named graph |
+| `stata graph export-all --format png\|pdf [--outdir ./figures]` | Export all graphs |
+
+- Unnamed graphs appear as `"Graph"` in the list.
+- `export-all` renames unnamed graphs to `_unnamedN`.
+- Name graphs explicitly in Stata: `twoway scatter price mpg, name(myfig)`

@@ -54,6 +54,33 @@ When the user asks whether setup is complete, verify more than "the file exists"
 
 If live verification is not possible on the current machine, state exactly what remains unverified.
 
+## CLI Reference
+
+| Command | Description |
+|---|---|
+| `stata doctor` | Full environment check (Python, Stata, pystata-x, daemon) |
+| `stata discover` | Find Stata installations |
+| `stata daemon start [--session NAME] [--mock]` | Start daemon for persistent session |
+| `stata daemon stop [--session NAME]` | Stop daemon |
+| `stata daemon status [--session NAME]` | Check daemon health |
+
+## Requirements
+
+- Python >= 3.11
+- Stata (any edition with `stata-se` binary)
+- pystata (for stateful session) or subprocess fallback
+
+## Getting Started
+
+1. Run `stata doctor` to check your environment.
+2. Run `stata discover` to find Stata.
+3. Run `stata daemon start` to start the daemon.
+4. Run `stata run "display 1+1"` to verify everything works.
+
+## Mock Mode
+
+Use `stata daemon start --mock` for CI/testing without a Stata license.
+
 ## Troubleshooting
 
 - If Stata is not discovered, tell the user to set `STATA_PATH`.

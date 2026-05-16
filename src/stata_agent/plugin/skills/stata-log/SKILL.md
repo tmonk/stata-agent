@@ -26,3 +26,15 @@ If no argument is provided, tell the user to supply a log file path or task_id. 
 For structured error extraction, call `stata log errors` first on any failure (< 5 ms, ~64 tokens). Only if ambiguous should you use `stata log tail --lines 100`. Never read the full log file into context.
 
 If the log is large and truncated, note that you can read more with `stata log tail --lines <N>`.
+
+## CLI Reference
+
+| Command | Description |
+|---|---|
+| `stata log path [--session NAME]` | Show log file path for the session |
+| `stata log tail [--session NAME] [--lines N]` | Read last N lines of the log |
+| `stata log search <pattern> [--session NAME]` | Search log for a pattern |
+| `stata log errors [--session NAME] [--context-lines N]` | Extract structured errors |
+
+- Logs are plain text (not SMCL), stored in `~/.cache/stata-agent/logs/`.
+- Backward scan of a 6 MB log completes in < 5 ms.

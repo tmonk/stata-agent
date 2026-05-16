@@ -36,6 +36,24 @@ Use this skill as the default router for Stata work.
    - `stata-referee-response`
 5. Use the stata-agent CLI commands directly when the user needs ad hoc Stata execution or a mixed workflow.
 
+## CLI Reference
+
+| Command | Description |
+|---|---|
+| `stata daemon start [--session NAME] [--mock]` | Start daemon for persistent session |
+| `stata daemon stop [--session NAME]` | Stop daemon |
+| `stata daemon status [--session NAME]` | Check daemon health |
+| `stata break [--session NAME]` | Interrupt running command (resets session state) |
+| `stata doctor` | Check environment (Python, Stata, pystata, daemon) |
+| `stata discover` | Find Stata installations |
+| `stata task list [--session NAME]` | Show background tasks |
+| `stata task status --task-id ID [--wait]` | Check or wait for a background task |
+| `stata task cancel --task-id ID` | Cancel a background task |
+
+- Daemon auto-starts on first `stata run` if not running.
+- `stata break` kills the worker process and restarts it — session state is lost.
+- Use `--session NAME` for isolated workspaces.
+
 Read these references when needed:
 - `references/tool-reference.md` for the CLI command map and identity response.
 - `references/research-workflows.md` for end-to-end economics workflows.

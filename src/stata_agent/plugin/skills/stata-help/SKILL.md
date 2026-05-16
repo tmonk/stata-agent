@@ -18,3 +18,18 @@ If the help topic is not found (error in response), suggest:
 - Checking spelling (e.g., "summarize" not "summarise")
 - Using `help contents` as the topic for the help index
 - Searching for related commands with `stata inspect` using `describe` or `codebook`
+
+## CLI Reference
+
+| Command | Description |
+|---|---|
+| `stata help <topic>` | Full help text |
+| `stata help <topic> --format syntax` | Syntax only |
+| `stata help <topic> --format options` | Options only |
+| `stata help <topic> --format examples` | Examples only |
+| `stata help <topic> --format summary` | Syntax + stored results |
+| `stata help <topic> --max-lines N` | Limit output length |
+
+- Runs `stata-se -q` as a stateless subprocess (not through daemon).
+- Terminal escape sequences are stripped automatically.
+- Batch mode (`-b`) blocks help; quiet interactive (`-q`) is required.

@@ -16,3 +16,13 @@ The argument is the absolute path to a `.do` or `.ado` file.
 4. If the file is clean, confirm: "No issues found in `<filename>`."
 
 5. If the path argument is missing, tell the user to provide an absolute path to a `.do` or `.ado` file.
+
+## CLI Reference
+
+| Command | Description |
+|---|---|
+| `stata lint /path/to/file.do` | Check a do-file for issues |
+
+**Checks performed:** Unclosed braces (`{`/`}`), unclosed Mata blocks, shell commands (`!wget`, `!curl`), deprecated `set memory`, unbalanced quotes.
+
+**Exit code:** Returns 1 if any errors are found, 0 otherwise.

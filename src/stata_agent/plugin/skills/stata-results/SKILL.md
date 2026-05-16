@@ -14,3 +14,14 @@ Present the results in a structured format:
 If no results are stored (empty response), tell the user to run a Stata command first (e.g., `regress`, `summarize`, `ttest`).
 
 If the user needs Mata state, they can pass `--json` to get structured output with all available result classes.
+
+## CLI Reference
+
+| Command | Description |
+|---|---|
+| `stata results [--session NAME] [--return r\|e\|s]` | Get stored results from the last command |
+
+- `r()` — return results from the last command.
+- `e()` — estimation results (after regress, etc.).
+- `s()` — saved results from programs.
+- Use `--json` for structured output including matrices.

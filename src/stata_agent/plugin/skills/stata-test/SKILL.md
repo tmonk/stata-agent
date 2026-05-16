@@ -5,6 +5,14 @@ description: Discover and run statest test suites for Stata do-files.
 
 The argument is a path to a test file or directory containing test files.
 
+## CLI Reference
+
+| Command | Description |
+|---|---|
+| `stata test discover <path>` | List `test_*.do` files under a directory |
+| `stata test run <file>` | Run a single test file |
+| `stata test run-all <path>` | Run all tests under a directory |
+
 **Discovering tests:**
 - Call `stata test discover <path>` to list `test_*.do` files under the given path.
 - If no test files are found, report that.

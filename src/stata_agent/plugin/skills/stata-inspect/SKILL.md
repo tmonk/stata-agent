@@ -12,3 +12,16 @@ If no argument is provided:
 3. Present both results in a clear, readable format.
 
 If either call returns an error indicating no data in memory, tell the user to load data first (e.g., `stata run "sysuse auto, clear"`).
+
+## CLI Reference
+
+| Command | Description |
+|---|---|
+| `stata inspect describe [varlist] [--fullnames]` | Dataset structure (obs, vars, types, labels) |
+| `stata inspect summary [varlist]` | Descriptive statistics (N, mean, sd, min, max) |
+| `stata inspect codebook [varlist]` | Variable codebook information |
+| `stata inspect list [varlist] [--from N] [--count M]` | List data values |
+| `stata inspect get --format csv\|json --out /path` | Export dataset to file |
+
+- All commands require a loaded dataset.
+- `inspect get` exports the current dataset to CSV or JSON.
