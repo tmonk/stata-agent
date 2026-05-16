@@ -15,8 +15,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test-fast:
-    name: Fast tests (py3.14, ${{ matrix.os }})
+  test:
+    name: Test (py3.14, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -52,6 +52,13 @@ jobs:
         run: |
           uv run pytest -v -m "fast and not requires_stata" tests/unit/test_mock_backend_fuzz.py --cov --cov-append --cov-report=term-missing
         timeout-minutes: 5
+
+      - name: Run slow / integration tests
+        env:
+          STATA_AGENT_MOCK: 1
+        run: |
+          uv run pytest -v -m "not benchmark and not requires_stata and not fast" --cov --cov-append --cov-report=term-missing
+        timeout-minutes: 10
 
       - name: Build package
         run: |
@@ -93,49 +100,3 @@ jobs:
             dist/
             *.log
           retention-days: 7
-
-  test-slow:
-    name: Slow / integration tests (py3.14, ${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-      fail-fast: false
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-          cache-dependency-glob: "**/uv.lock"
-
-      - name: Set up Python 3.14
-        run: uv python install 3.14
-
-      - name: Install dependencies
-        run: |
-          uv sync --python 3.14 --all-extras --dev
-        timeout-minutes: 10
-
-      - name: Run slow / integration tests (not requiring Stata)
-        env:
-          STATA_AGENT_MOCK: 1
-        run: |
-          uv run pytest -v -m "not benchmark and not requires_stata and not fast" --cov --cov-append --cov-report=term-missing
-        timeout-minutes: 10
-
-      - name: Upload build artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: slow-test-artifacts-${{ matrix.os }}
-          path: |
-            *.log
-          retention-days: 7
-
-
