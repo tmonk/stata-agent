@@ -31,10 +31,12 @@ If the log is large and truncated, note that you can read more with `stata log t
 
 | Command | Description |
 |---|---|
-| `stata log path [--session NAME]` | Show log file path for the session |
-| `stata log tail [--session NAME] [--lines N]` | Read last N lines of the log |
-| `stata log search <pattern> [--session NAME]` | Search log for a pattern |
-| `stata log errors [--session NAME] [--context-lines N]` | Extract structured errors |
+| `stata log path` | Show log file path for the session |
+| `stata log tail [--lines N]` | Read last N lines of the log |
+| `stata log search <pattern>` | Search log for a pattern |
+| `stata log errors [--context-lines N]` | Extract structured errors |
+
+All commands accept `[--session NAME]` (default: `"default"`).
 
 - Logs are plain text (not SMCL), stored in `~/.cache/stata-agent/logs/`.
 - Backward scan of a 6 MB log completes in < 5 ms.

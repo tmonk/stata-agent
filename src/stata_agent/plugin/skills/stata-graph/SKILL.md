@@ -20,9 +20,11 @@ After export, review the graph(s): check titles, axis labels, legends, and wheth
 
 | Command | Description |
 |---|---|
-| `stata graph list [--session NAME]` | List graphs in memory, active graph marked |
+| `stata graph list` | List graphs in memory, active graph marked |
 | `stata graph export --name NAME --format png\|pdf\|svg [--out /path]` | Export a named graph |
 | `stata graph export-all --format png\|pdf [--outdir ./figures]` | Export all graphs |
+
+All commands accept `[--session NAME]` to target a specific session (default: `"default"`).
 
 - Unnamed graphs appear as `"Graph"` in the list.
 - `export-all` renames unnamed graphs to `_unnamedN`.

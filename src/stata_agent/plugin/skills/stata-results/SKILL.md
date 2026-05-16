@@ -19,7 +19,9 @@ If the user needs Mata state, they can pass `--json` to get structured output wi
 
 | Command | Description |
 |---|---|
-| `stata results [--session NAME] [--return r\|e\|s]` | Get stored results from the last command |
+| `stata results [--return r\|e\|s]` | Get stored results from the last command |
+
+All commands accept `[--session NAME]` (default: `"default"`).
 
 - `r()` — return results from the last command.
 - `e()` — estimation results (after regress, etc.).

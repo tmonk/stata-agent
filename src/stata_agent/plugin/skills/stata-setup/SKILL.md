@@ -60,9 +60,11 @@ If live verification is not possible on the current machine, state exactly what 
 |---|---|
 | `stata doctor` | Full environment check (Python, Stata, pystata-x, daemon) |
 | `stata discover` | Find Stata installations |
-| `stata daemon start [--session NAME] [--mock]` | Start daemon for persistent session |
-| `stata daemon stop [--session NAME]` | Stop daemon |
-| `stata daemon status [--session NAME]` | Check daemon health |
+| `stata daemon start [--mock]` | Start daemon for persistent session |
+| `stata daemon stop` | Stop daemon |
+| `stata daemon status` | Check daemon health |
+
+Daemon commands accept `[--session NAME]` (default: `"default"`).
 
 ## Requirements
 

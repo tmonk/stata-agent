@@ -31,12 +31,10 @@ The argument is the Stata code or absolute path to a `.do` file to execute.
 
 | Command | Description |
 |---|---|
-| `stata run [--echo] [--session NAME] "<code>"` | Run Stata code |
-| `stata run --file /path/file.do [--session NAME]` | Run a do-file |
+| `stata run [--echo] "<code>"` | Run Stata code |
+| `stata run --file /path/file.do` | Run a do-file |
 | `stata run --background --echo "<code>"` | Run in background |
 | `stata run --strict --echo "<code>"` | Skip error wrapper (use for do-files) |
 | `stata task status --task-id ID --wait` | Wait for background task to finish |
 
-- State persists across commands in the same session.
-- Default session is `"default"`. Use `--session NAME` for isolated workspaces.
-- Graphs are auto-detected after each run. Use `stata graph list` to see them.
+All commands accept `[--session NAME]` (default: `"default"`). State persists across commands in the same session. Graphs are auto-detected after each run — use `stata graph list` to see them.

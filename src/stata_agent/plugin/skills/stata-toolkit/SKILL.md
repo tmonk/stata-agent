@@ -40,19 +40,17 @@ Use this skill as the default router for Stata work.
 
 | Command | Description |
 |---|---|
-| `stata daemon start [--session NAME] [--mock]` | Start daemon for persistent session |
-| `stata daemon stop [--session NAME]` | Stop daemon |
-| `stata daemon status [--session NAME]` | Check daemon health |
-| `stata break [--session NAME]` | Interrupt running command (resets session state) |
+| `stata daemon start [--mock]` | Start daemon for persistent session |
+| `stata daemon stop` | Stop daemon |
+| `stata daemon status` | Check daemon health |
+| `stata break` | Interrupt running command (resets session state) |
 | `stata doctor` | Check environment (Python, Stata, pystata, daemon) |
 | `stata discover` | Find Stata installations |
-| `stata task list [--session NAME]` | Show background tasks |
+| `stata task list` | Show background tasks |
 | `stata task status --task-id ID [--wait]` | Check or wait for a background task |
 | `stata task cancel --task-id ID` | Cancel a background task |
 
-- Daemon auto-starts on first `stata run` if not running.
-- `stata break` kills the worker process and restarts it — session state is lost.
-- Use `--session NAME` for isolated workspaces.
+Daemon, break, and task commands accept `[--session NAME]` (default: `"default"`). Daemon auto-starts on first `stata run` if not running. `stata break` kills the worker process and restarts it — session state is lost.
 
 Read these references when needed:
 - `references/tool-reference.md` for the CLI command map and identity response.
@@ -64,9 +62,3 @@ Read these references when needed:
 1. On error (`rc != 0`), run `stata log errors` first (< 5 ms).
 2. Only if ambiguous, use `stata log tail --lines 100`.
 3. Never read the full log file.
-
-## Notes
-
-- Daemon auto-starts on first `stata run` if not running.
-- Use `--session NAME` for isolated workspaces.
-- `stata break` kills the worker process and restarts it — state is lost.

@@ -23,5 +23,7 @@ If either call returns an error indicating no data in memory, tell the user to l
 | `stata inspect list [varlist] [--from N] [--count M]` | List data values |
 | `stata inspect get --format csv\|json --out /path` | Export dataset to file |
 
+All commands accept `[--session NAME]` and require a loaded dataset. `inspect get` exports to CSV or JSON.
+
 - All commands require a loaded dataset.
 - `inspect get` exports the current dataset to CSV or JSON.
