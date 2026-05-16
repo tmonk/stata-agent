@@ -118,6 +118,7 @@ class TestCreateLinkOrCopy:
             assert target.is_symlink()
             assert target.resolve() == source.resolve()
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Symlink creation requires admin privileges on Windows")
     def test_skips_existing_correct_symlink(self, tmp_path):
         from stata_agent.skills_installer import _create_link_or_copy
 
@@ -130,6 +131,7 @@ class TestCreateLinkOrCopy:
         assert ok is True
         assert kind == "skip"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Symlink creation requires admin privileges on Windows")
     def test_repairs_stale_symlink(self, tmp_path):
         from stata_agent.skills_installer import _create_link_or_copy
 
