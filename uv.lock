@@ -1443,6 +1443,7 @@ dev = [
 dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-benchmark" },
+    { name = "pytest-cov" },
     { name = "pytest-xdist" },
     { name = "ruff" },
 ]
@@ -1470,6 +1471,7 @@ provides-extras = ["data-browser", "dev", "mock"]
 dev = [
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "pytest-benchmark", specifier = ">=5.1.0" },
+    { name = "pytest-cov", specifier = ">=4.0.0" },
     { name = "pytest-xdist", specifier = ">=3.6.1" },
     { name = "ruff", specifier = ">=0.4.0" },
 ]
