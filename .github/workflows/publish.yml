@@ -46,8 +46,10 @@ jobs:
           pip install dist/*.whl
           python -c "
           import importlib.resources
+          import importlib.metadata
           import stata_agent
-          print(f'[OK] Import successful (v{stata_agent.__version__})')
+          _v = importlib.metadata.version('stata-agent')
+          print(f'[OK] Import successful (v{_v})')
           # Verify plugin/skills are bundled in the wheel
           p = importlib.resources.files('stata_agent') / 'plugin'
           print(f'Plugin dir: {p}')
