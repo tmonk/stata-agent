@@ -99,6 +99,7 @@ skip_covered = true
 package = true
 
 [tool.semantic_release]
+allow_zero_version = true
 branch = "main"
 commit_message = "chore(release): {version} [skip ci]"
 tag_format = "v{version}"
