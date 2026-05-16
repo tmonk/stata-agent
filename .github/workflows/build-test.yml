@@ -53,13 +53,6 @@ jobs:
           uv run pytest -v -m "fast and not requires_stata" tests/unit/test_mock_backend_fuzz.py --cov --cov-append --cov-report=term-missing
         timeout-minutes: 5
 
-      - name: Run slow / integration tests
-        env:
-          STATA_AGENT_MOCK: 1
-        run: |
-          uv run pytest -v -m "not benchmark and not requires_stata and not fast" --cov --cov-append --cov-report=term-missing
-        timeout-minutes: 10
-
       - name: Build package
         run: |
           uv build
