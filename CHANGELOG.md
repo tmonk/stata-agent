@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v0.2.0 (2026-05-16)
+
+### Continuous Integration
+
+- **release**: Remove PyPI publish workflow dispatch after versioning
+  ([`3a0138c`](https://github.com/tmonk/stata-agent/commit/3a0138c1e021265db31a0f7af2e588cdb31ebacb))
+
+### Features
+
+- **skills**: Add new skill definitions for Stata workflows
+  ([`bddd385`](https://github.com/tmonk/stata-agent/commit/bddd385a1297ffccfaf9b76b4eefb656f556dd36))
+
+- **skills**: Align all skills with mcp-stata format and coverage
+  ([`1ce7bec`](https://github.com/tmonk/stata-agent/commit/1ce7bec0e0864b68297180445d9158283a9c8530))
+
+
 ## v0.1.1 (2026-05-16)
 
 ### Bug Fixes
