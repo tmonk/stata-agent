@@ -324,7 +324,8 @@ class TestStart:
         sock_path = tmp_path / "default.sock"
         sock_path.touch()  # os.chmod needs an existing file
 
-        mock_server = AsyncMock()
+        from unittest.mock import MagicMock
+        mock_server = MagicMock()
         mock_server.wait_closed = AsyncMock()
 
         written_meta = None

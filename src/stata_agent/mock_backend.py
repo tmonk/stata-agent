@@ -372,7 +372,10 @@ class MockDaemon:
         await server.wait_closed()
         if self.sock_path:
             self.sock_path.unlink(missing_ok=True)
-        meta_path.unlink(missing_ok=True)
+        try:
+            meta_path.unlink(missing_ok=True)
+        except PermissionError:
+            pass  # Windows may hold a lock temporarily
 
     async def dispatch(self, method: str, args: dict) -> dict:
         session = args.get("session", self.session_name)

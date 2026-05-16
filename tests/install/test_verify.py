@@ -268,6 +268,7 @@ class TestSkillStatusHelpers:
         result = _check_skills_for_agent("generic", tmp_path, None)
         assert result.registered is False
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Symlink creation requires admin privileges on Windows")
     def test_generic_skill_symlink(self, tmp_path):
         from scripts.install.verify import _check_skills_for_agent
         skills_dir = tmp_path / ".agents" / "skills"
@@ -280,6 +281,7 @@ class TestSkillStatusHelpers:
         assert result.registered is True
         assert result.link_type == "symlink"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Symlink creation requires admin privileges on Windows")
     def test_generic_skill_stale_symlink(self, tmp_path):
         from scripts.install.verify import _check_skills_for_agent
         skills_dir = tmp_path / ".agents" / "skills"
