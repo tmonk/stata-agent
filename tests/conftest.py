@@ -69,6 +69,10 @@ def pytest_collection_modifyitems(config, items):
         if _in_dir(fspath, tests_root / "e2e") or _in_dir(fspath, tests_root / "install"):
             item.add_marker(pytest.mark.slow)
 
+        # -- Marker: optional (tests/optional/) ------------------------------
+        if _in_dir(fspath, tests_root / "optional"):
+            item.add_marker(pytest.mark.optional)
+
         # -- Marker: fast (tests/unit/) ----------------------------------
         if _in_dir(fspath, tests_root / "unit"):
             item.add_marker(pytest.mark.fast)
