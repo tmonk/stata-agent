@@ -96,7 +96,6 @@ jobs:
 
   test-slow:
     name: Slow / integration tests (py3.14, ${{ matrix.os }})
-    needs: test-fast
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -139,38 +138,4 @@ jobs:
             *.log
           retention-days: 7
 
-  test-benchmarks:
-    name: Benchmarks (py3.14, ${{ matrix.os }})
-    needs: test-fast
-    if: github.ref == 'refs/heads/main'
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        # Benchmarks only run on ubuntu (Linux perf is most stable)
-      fail-fast: false
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-          cache-dependency-glob: "**/uv.lock"
-
-      - name: Set up Python 3.14
-        run: uv python install 3.14
-
-      - name: Install dependencies
-        run: |
-          uv sync --python 3.14 --all-extras --dev
-        timeout-minutes: 10
-
-      - name: Run benchmarks (not requiring Stata)
-        run: |
-          uv run pytest -v -m "benchmark and not requires_stata"
-        timeout-minutes: 30
